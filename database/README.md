@@ -6,7 +6,8 @@ perfiles/permisos y los datos de `sql/yakukhipu_final.sql` de la entrega BK-1.
 No es un SQL para pegar en el editor ni un backup de la base activa de Railway.
 
 No contiene cuentas reales, contraseñas, sesiones ni identidades OIDC de Railway.
-La definición de las tablas de autenticación sí está incluida. Los roles globales
+La definición de las tablas de autenticación OIDC sí está incluida; `usuario` no
+tiene columna de contraseña local. Los roles globales
 de PostgreSQL y sus contraseñas no forman parte de un dump de una base.
 Los datos simulados proporcionados por los datasets conservan su procedencia.
 

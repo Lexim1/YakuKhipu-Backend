@@ -6,7 +6,6 @@ from unittest.mock import Mock
 import pytest
 
 from scripts.generar_sql import identity, literal, read_rows, typed, insert
-from app.auth.passwords import hash_password, verify_password
 from app.modules import plazos, tramites
 from app.core.errores import DatosInvalidos
 from app.schemas.comun import Actor
@@ -36,13 +35,6 @@ def test_sql_cita_apostrofos_y_no_sustituye_null():
     assert literal(None)=='NULL'
     query=insert('tramite',{'id':'real:1','estado':'concluido'},preserve=('estado',))
     assert 'DO NOTHING' in query
-
-
-def test_password_correcta_incorrecta_y_sal_distinta():
-    encoded=hash_password('contraseña-de-prueba')
-    assert verify_password('contraseña-de-prueba',encoded)
-    assert not verify_password('otra',encoded)
-    assert encoded != hash_password('contraseña-de-prueba')
 
 
 def test_sin_regla_no_declara_vencimiento(monkeypatch):

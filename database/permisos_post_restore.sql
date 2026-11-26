@@ -12,7 +12,7 @@ GRANT CONNECT ON DATABASE yakukhipu_final TO yakukhipu_final_api;
 GRANT USAGE ON SCHEMA public,seguridad TO yakukhipu_final_api;
 GRANT SELECT ON ALL TABLES IN SCHEMA public,seguridad TO yakukhipu_final_api;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA seguridad TO yakukhipu_final_api;
-GRANT INSERT,UPDATE ON seguridad.sesion,seguridad.intento_acceso TO yakukhipu_final_api;
+GRANT INSERT,UPDATE ON seguridad.sesion TO yakukhipu_final_api;
 GRANT INSERT ON seguridad.evento_acceso TO yakukhipu_final_api;
 GRANT INSERT,UPDATE,DELETE ON tramite,documento,fragmento,publicacion,documento_recibido,alerta,
  conversacion,mensaje,respuesta_cache,fuente,lote_importacion,registro_fuente,encargo
