@@ -20,6 +20,20 @@ from .core.db import engine
 from .modules.archivos_pdf import cliente
 
 
+def validar_url_llm(url: str) -> None:
+    destino = urlsplit(url)
+    if destino.username or destino.password or destino.query or destino.fragment:
+        raise ValueError("LLM_BASE_URL no debe incluir credenciales, query ni fragmento.")
+    if destino.scheme == "https" and destino.hostname:
+        return
+    # OmniRoute de este proyecto solo usa HTTP dentro de la red privada o loopback.
+    if (destino.scheme == "http" and destino.hostname in {
+            "worker.railway.internal", "127.0.0.1", "localhost", "::1"}
+            and destino.port == 20128 and destino.path.rstrip("/") == "/v1"):
+        return
+    raise ValueError("LLM_BASE_URL requiere HTTPS externo o el gateway privado autorizado.")
+
+
 def configuracion() -> None:
     obligatorias = (
         "database_url", "secret_key", "portal_origin", "frontend_origin",
@@ -34,9 +48,10 @@ def configuracion() -> None:
         raise ValueError("Se requieren COOKIE_SECURE=true, LLM_ENABLED=true y SECRET_KEY de 32+ caracteres.")
     if settings.portal_origin.rstrip("/") != settings.frontend_origin.rstrip("/"):
         raise ValueError("PORTAL_ORIGIN y FRONTEND_ORIGIN deben coincidir en este despliegue BFF.")
-    for nombre in ("portal_origin", "oidc_issuer", "pdf_endpoint", "llm_base_url"):
+    for nombre in ("portal_origin", "oidc_issuer", "pdf_endpoint"):
         if urlsplit(getattr(settings, nombre)).scheme != "https":
             raise ValueError(f"{nombre.upper()} debe usar HTTPS.")
+    validar_url_llm(settings.llm_base_url)
     if settings.fecha_demo is not None:
         raise ValueError("FECHA_DEMO debe estar vacía en la validación de nube.")
 

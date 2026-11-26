@@ -113,12 +113,25 @@ tu cuenta de OpenRouter; `openrouter/free` selecciona modelos gratuitos de forma
 variable y tiene límites de uso. Para una validación reproducible conviene fijar
 un modelo concreto tras probarlo con la cuenta. Nunca pegues la clave en Git.
 
-En la validación del 26/11/2026 se configuró en **portal y worker**
+En una primera validación del 26/11/2026, anterior a la integración de OmniRoute, se configuró en **portal y worker**
 `LLM_MODEL=nvidia/nemotron-3.5-super-vl:free` y `LLM_REASONING_EFFORT=none`.
 Ese modelo permitió una respuesta JSON verificable. El router anterior elegía
 modelos que consumían los tokens en razonamiento sin devolver texto. No copiar
 `none` a un modelo con razonamiento obligatorio: volver a comprobar soporte,
 formato y disponibilidad al cambiarlo. La clave existente se conserva como secreto.
+
+La rama `codex/worker-omniroute-cloud` de Lexi incorpora posteriormente OmniRoute
+al worker. La configuración observada después apunta portal a
+`http://worker.railway.internal:20128/v1`, worker a `http://127.0.0.1:20128/v1`
+y usa `LLM_MODEL=yakukhipu` en ambos. Ese nombre es un combo de OmniRoute;
+el proveedor y modelo efectivos se configuran allí. No sustituir estas variables
+por OpenRouter directo al fusionar este PR ni asumir que el combo usa un modelo
+concreto sin revisar su configuración. Integrar también la rama del worker para
+que GitHub conserve el runtime que corresponde al despliegue.
+
+El validador admite HTTPS para proveedores externos y HTTP únicamente para
+ese gateway privado o loopback en puerto 20128 y ruta /v1. Los endpoints públicos
+del portal, Keycloak y almacenamiento siguen requiriendo HTTPS.
 
 El worker requiere `DATABASE_URL`, las seis variables `PDF_*` y las cuatro
 `LLM_*` (`LLM_ENABLED`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`).

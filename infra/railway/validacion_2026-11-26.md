@@ -15,7 +15,7 @@ Ambos servicios usan postgres.railway.internal/yakukhipu_final. Keycloak usa
 otro servidor: postgres-fcyt.railway.internal, base railway. No se publicó un
 puerto de PostgreSQL ni se modificaron los datos fuente o el esquema.
 
-## Corrección operativa aplicada
+## Primera corrección operativa, anterior al cambio de Lexi
 
 Aunque los PR estaban aprobados, portal y worker conservaban openrouter/free
 y no tenían LLM_REASONING_EFFORT. Se configuraron en ambos servicios:
@@ -35,6 +35,26 @@ El modelo pasó una llamada real de control con JSON válido. Esta llamada no
 certifica una recomendación de negocio: el chat sigue exigiendo evidencia y
 puede descartar una respuesta no verificable. No se fuerza none a otros modelos
 que requieran razonamiento obligatorio.
+
+## Estado posterior: integración de OmniRoute por Lexi
+
+Al revisar el trabajo concurrente se encontró `codex/worker-omniroute-cloud`,
+commit 5e1835f, con Dockerfile.worker, app/worker_runtime.py y su documentación.
+No modifica los archivos del PR de validación y no presenta solapamiento de
+archivos con él. Esa rama todavía no figura en master en esta comprobación.
+
+Las variables observadas ahora son distintas de la primera corrección:
+portal llama a worker.railway.internal y worker a 127.0.0.1, usando el combo
+yakukhipu. No se modificaron esas variables durante esta revisión. El modelo
+efectivo del combo y el recorrido completo de esa nueva integración no quedan
+certificados por la llamada anterior a OpenRouter directo.
+
+Se adaptó el validador para aceptar HTTP solo para el gateway privado documentado,
+sin admitir HTTP público, y se añadió cobertura de ese límite. Las secciones de
+pruebas siguientes describen la primera comprobación, no una nueva certificación
+del runtime de OmniRoute. Antes de fusionar/desplegar, mantener coordinadas la
+rama del worker y la del validador: no volver a desplegar el worker con su comando
+anterior mientras el portal dependa del gateway nuevo.
 
 ## Pruebas realizadas
 
