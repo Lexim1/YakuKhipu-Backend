@@ -1,0 +1,18 @@
+FROM node:24-bookworm-slim AS node
+FROM python:3.12-slim-bookworm
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 NEXT_TELEMETRY_DISABLED=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+ && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+ && apt-get update && apt-get install -y --no-install-recommends ca-certificates poppler-utils tesseract-ocr tesseract-ocr-spa make g++ \
+ && rm -rf /var/lib/apt/lists/*
+RUN npm install --prefix /opt/omniroute --omit=dev --legacy-peer-deps --no-audit --no-fund omniroute@3.8.54
+WORKDIR /app
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app ./app
+RUN useradd --uid 10001 --create-home yakukhipu && mkdir -p /omniroute-data && chown yakukhipu:yakukhipu /omniroute-data
+ENV DATA_DIR=/omniroute-data OMNIROUTE_PORT=20128 PORT=20127 OMNIROUTE_MEMORY_MB=320
+EXPOSE 20127 20128
+CMD ["python", "-m", "app.worker_runtime"]
