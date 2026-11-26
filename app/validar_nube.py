@@ -110,16 +110,40 @@ def bucket() -> None:
 
 async def agente() -> None:
     respuesta, _ = await llm.completar([
-        {"role": "user", "content": "Responde solo con la palabra OK."}
+        {"role": "user", "content": 'Devuelve solo este JSON: {"respuesta":"OK","citas":[],"advertencias":[]}'}
     ])
-    if not respuesta.strip():
-        raise ValueError("El proveedor del agente devolvió una respuesta vacía.")
+    datos = json.loads(respuesta)
+    if (not isinstance(datos, dict) or not isinstance(datos.get("respuesta"), str)
+            or datos["respuesta"].strip() != "OK"
+            or datos.get("citas") != [] or datos.get("advertencias") != []):
+        raise ValueError("El proveedor no devolvió la respuesta de control en el formato solicitado.")
+
+
+def portal_http() -> None:
+    """Comprueba frontend/API públicos y que los recursos institucionales exijan sesión."""
+    origen = settings.portal_origin.rstrip("/")
+    with httpx.Client(timeout=15, follow_redirects=False) as http:
+        for ruta in ("/", "/sunass/expedientes", "/eps/tramites", "/ciudadania/decisiones"):
+            r = http.get(origen + ruta)
+            if r.status_code != 200 or "text/html" not in r.headers.get("content-type", ""):
+                raise ValueError(f"El frontend no sirve correctamente {ruta}.")
+        r = http.get(origen + "/api/publico/decisiones")
+        if r.status_code != 200 or not isinstance(r.json().get("items"), list):
+            raise ValueError("La consulta ciudadana no devuelve una lista válida.")
+        for ruta in ("/api/sesion", "/api/tramites", "/api/recepcion/catalogos"):
+            r = http.get(origen + ruta)
+            if r.status_code != 401:
+                raise ValueError(f"El recurso institucional {ruta} no exige sesión correctamente.")
+        r = http.post(origen + "/api/recepcion/expedientes", json={},
+                      headers={"Origin": "https://origen-no-autorizado.invalid"})
+        if r.status_code != 403:
+            raise ValueError("El portal no rechaza el origen ajeno en una escritura institucional.")
 
 
 def main() -> int:
     comprobaciones = (("configuracion", configuracion), ("postgres", postgres),
                      ("keycloak", keycloak), ("bucket", bucket),
-                     ("agente", lambda: asyncio.run(agente())))
+                     ("portal_http", portal_http), ("agente", lambda: asyncio.run(agente())))
     correcto = True
     for nombre, funcion in comprobaciones:
         try:
