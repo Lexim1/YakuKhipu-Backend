@@ -49,3 +49,10 @@ class Incorporacion(Entrada):
     asignado_a: str | None = Field(default=None,min_length=2,max_length=120)
     avisar: bool = False
     version: int = Field(ge=1)
+
+
+class NuevoExpedienteRecepcion(Entrada):
+    documento_id: str = Field(min_length=3, max_length=120)
+    procedimiento: Literal["CPI", "UFI", "RP"]
+    fecha_ingreso: date
+    asignado_a: str = Field(min_length=2, max_length=80)

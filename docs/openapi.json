@@ -1878,6 +1878,232 @@
         }
       }
     },
+    "/api/recepcion/catalogos": {
+      "get": {
+        "tags": [
+          "SUNASS"
+        ],
+        "summary": "EPS y analistas activos para recibir y derivar documentos",
+        "operationId": "catalogos_recepcion_api_recepcion_catalogos_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Catalogos Recepcion Api Recepcion Catalogos Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ]
+      }
+    },
+    "/api/recepcion/expedientes": {
+      "post": {
+        "tags": [
+          "SUNASS"
+        ],
+        "summary": "Registrar ingreso manual y derivar a un analista",
+        "operationId": "crear_expediente_api_recepcion_expedientes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NuevoExpedienteRecepcion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Crear Expediente Api Recepcion Expedientes Post"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ]
+      }
+    },
     "/api/recepcion/destinos": {
       "get": {
         "tags": [
@@ -2789,6 +3015,127 @@
             "APIKeyCookie": []
           }
         ]
+      }
+    },
+    "/api/tramites/{tramite_id}/asignaciones/candidatos": {
+      "get": {
+        "tags": [
+          "Asignaciones"
+        ],
+        "summary": "Candidatos",
+        "operationId": "candidatos_api_tramites__tramite_id__asignaciones_candidatos_get",
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "tramite_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tramite Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CandidatoAsignacion"
+                  },
+                  "title": "Response Candidatos Api Tramites  Tramite Id  Asignaciones Candidatos Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorApi"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
       }
     },
     "/api/tramites/{tramite_id}/asignaciones": {
@@ -4645,6 +4992,24 @@
         ],
         "title": "Body_recibir_pdf_api_recepcion_pdf_post"
       },
+      "CandidatoAsignacion": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "nombre"
+        ],
+        "title": "CandidatoAsignacion"
+      },
       "ConfirmarVinculo": {
         "properties": {
           "documento": {
@@ -4660,7 +5025,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Version"
           }
         },
@@ -5450,7 +5815,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Version"
           }
         },
@@ -5686,7 +6051,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Version",
             "description": "Versión observada por el frontend; si cambió responde 409"
           },
@@ -5694,8 +6059,8 @@
             "anyOf": [
               {
                 "type": "integer",
-                "maximum": 60,
-                "minimum": 1
+                "maximum": 60.0,
+                "minimum": 1.0
               },
               {
                 "type": "null"
@@ -5754,8 +6119,8 @@
             "anyOf": [
               {
                 "type": "integer",
-                "maximum": 9,
-                "minimum": 1
+                "maximum": 9.0,
+                "minimum": 1.0
               },
               {
                 "type": "null"
@@ -5783,7 +6148,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Version"
           },
           "motivo": {
@@ -5878,7 +6243,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Version"
           }
         },
@@ -5892,6 +6257,45 @@
         ],
         "title": "NuevaRespuestaEps",
         "description": "POST /api/eps/tramites/{id}/respuestas."
+      },
+      "NuevoExpedienteRecepcion": {
+        "properties": {
+          "documento_id": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Documento Id"
+          },
+          "procedimiento": {
+            "type": "string",
+            "enum": [
+              "CPI",
+              "UFI",
+              "RP"
+            ],
+            "title": "Procedimiento"
+          },
+          "fecha_ingreso": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Ingreso"
+          },
+          "asignado_a": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 2,
+            "title": "Asignado A"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "documento_id",
+          "procedimiento",
+          "fecha_ingreso",
+          "asignado_a"
+        ],
+        "title": "NuevoExpedienteRecepcion"
       },
       "Plazo": {
         "properties": {
@@ -6016,7 +6420,7 @@
         "properties": {
           "version": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 1.0,
             "title": "Version"
           },
           "titulo": {

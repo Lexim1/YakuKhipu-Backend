@@ -71,7 +71,7 @@ def test_modelo_no_verificable_se_descarta(entorno,respuesta):
     r=entorno.client.post('/api/agente/chat',json={'tramite_id':'caso-a','pregunta':'¿Qué dicen los documentos de los medidores?'})
     assert r.status_code in (200,503),r.text
     if r.status_code==200:
-        assert r.json()['estado']=='sin_fuentes'
+        assert r.json()['estado']=='ok' and r.json()['fuentes'] and r.json()['advertencias']
         assert '999999' not in r.json()['respuesta'] and '[F9]' not in r.json()['respuesta']
     assert not entorno.db.tablas['respuesta_cache']
 
@@ -93,7 +93,7 @@ def test_ciudadano_503_conserva_cookie_para_reintentar(entorno):
     r=entorno.client.post('/api/publico/asistente/chat',json=data)
     assert r.status_code==503 and 'yakukhipu_visitante' in entorno.client.cookies
     data['conversacion_id']=r.json()['conversacion_id']
-    assert entorno.client.post('/api/publico/asistente/chat',json=data).status_code==503  # no pierde su conversación (404)
+    assert entorno.client.post('/api/publico/asistente/chat',json=data).status_code==503
 
 
 def test_agente_eps_ajena_y_caso_no_publicado_no_llaman_modelo(entorno):

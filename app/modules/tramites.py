@@ -8,7 +8,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
@@ -16,7 +16,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
 from ..core.errores import AccesoDenegado, Conflicto, DatosInvalidos, NoEncontrado
-from ..models import Actuacion, Alerta, DocumentoRecibido, Documento, Fragmento, Eps, Tramite
+from ..models import Actuacion, Alerta, DocumentoRecibido, Documento, Fragmento, Eps, Tramite, Usuario
+from ..models.seguridad import Asignacion
 from ..repositories import tramites as repo
 from ..schemas.comun import Actor
 from . import plazos
@@ -418,11 +419,36 @@ def listar_recepcion(db: Session) -> list[dict]:
     return salida
 
 
-def incorporar(db: Session, actor: Actor, datos: dict, hoy: date) -> None:
+def cambiar_asignacion(db: Session, actor: Actor, t: Tramite, usuario_id: str, motivo: str) -> bool:
+    exigir(actor, "asignacion.gestionar")
+    usuario = db.get(Usuario, usuario_id)
+    if usuario is None or not usuario.activo or usuario.rol_id != "analista_srt":
+        raise DatosInvalidos("La asignación requiere un Analista SRT activo.")
+    anterior = db.scalars(select(Asignacion).where(
+        Asignacion.tramite_id == t.id, Asignacion.fin.is_(None),
+    )).first()
+    if anterior and anterior.usuario_id == usuario.id:
+        return False
+    ahora = datetime.now(timezone.utc)
+    if anterior:
+        anterior.fin = ahora
+        db.flush()
+    db.add(Asignacion(tramite_id=t.id, usuario_id=usuario.id, asignado_por=actor.usuario_id,
+                      inicio=ahora, fin=None, motivo=motivo))
+    t.responsable = usuario.nombre_visible
+    return True
+
+
+def recepcion_pendiente(db: Session, actor: Actor, documento_id: str) -> DocumentoRecibido:
     exigir(actor, "recepcion.gestionar")
-    recibido = db.get(DocumentoRecibido, datos["documento_id"], with_for_update=True)
+    recibido = db.get(DocumentoRecibido, documento_id, with_for_update=True)
     if recibido is None or recibido.incorporado_a:
         raise NoEncontrado("El documento ya fue incorporado o no existe.")
+    return recibido
+
+
+def incorporar(db: Session, actor: Actor, datos: dict, hoy: date) -> None:
+    recibido = recepcion_pendiente(db, actor, datos["documento_id"])
     t = repo.obtener_tramite(db, actor, datos["tramite_id"], bloquear=True)
     if t.estado in FINALES:
         raise Conflicto("El trámite ya concluyó.")
@@ -430,6 +456,11 @@ def incorporar(db: Session, actor: Actor, datos: dict, hoy: date) -> None:
         raise Conflicto('El trámite cambió. Actualiza antes de incorporar el documento.')
     if recibido.datos.get('eps_id')!=t.eps_id:
         raise DatosInvalidos('El documento recibido corresponde a otra EPS.')
+    incorporar_en_tramite(db, actor, recibido, t, datos["tipo_actuacion"], datos.get("asignado_a"))
+
+
+def incorporar_en_tramite(db: Session, actor: Actor, recibido: DocumentoRecibido, t: Tramite,
+                          motivo: str, analista_id: str | None, fecha_ingreso: date | None = None) -> None:
     tiene_pdf = recibido.datos.get("tiene_pdf", False)
     paginas = [{"texto": recibido.datos["texto"], "origen": "texto_registrado_mesa_partes"}]
     if tiene_pdf:
@@ -452,10 +483,14 @@ def incorporar(db: Session, actor: Actor, datos: dict, hoy: date) -> None:
         db.flush()
         db.execute(text("""INSERT INTO propuesta_agente(documento_id,tramite_id)
             VALUES (:documento,:tramite)"""), {"documento":doc.id,"tramite":t.id})
+    if fecha_ingreso:
+        db.add(_nueva(t, actor, "recepcion_mesa_partes", "Ingreso registrado por Mesa de Partes",
+                      {"detalle": doc.referencia, "fecha_acreditada": fecha_ingreso, "documento_id": doc.id}))
     act = _nueva(t, actor, "incorporar_documento", f"Se incorpora {recibido.datos.get('titulo', 'un documento')}",
-                 {"detalle": datos["tipo_actuacion"],
+                 {"detalle": motivo,
                   "fecha_acreditada": date.fromisoformat(recibido.datos['fecha_documento']), "documento_id": recibido.id})
-    t.responsable = datos.get("asignado_a") or t.responsable
+    if analista_id and cambiar_asignacion(db, actor, t, analista_id, motivo):
+        db.add(_nueva(t, actor, "asignar", "Asignación de expediente", {"detalle": motivo, "documento_id": doc.id}))
     _guardar(db, t, act)
 
 
@@ -478,4 +513,6 @@ def listar_alertas(db: Session, hoy: date, actor: Actor) -> list[dict]:
                            "regla": p["regla"] or "", "fuente": p["fuente"] or "",
                            "destino": {"tipo": "expediente", "id": t.id, "pestana": "plazos"},
                            "accion": "Abrir expediente"})
+    from .calidad import listar
+    salida.extend(listar(db, repo.listar_tramites(db, actor)))
     return salida

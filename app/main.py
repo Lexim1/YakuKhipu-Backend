@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 
+from asyncio import Semaphore
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -26,6 +27,8 @@ errores.registrar(app)
 for r in (sesion.router, sesion.auth_router, tramites.router, asignaciones.router, eps.router, documentos.router, publico.router, asistente.router):
     app.include_router(r)
 
+_cargas_pdf = Semaphore(2)
+
 
 @app.middleware("http")
 async def proteger_escrituras(request: Request, call_next):
@@ -44,6 +47,11 @@ async def proteger_escrituras(request: Request, call_next):
         if int(longitud) > LIMITE + 65536:
             return JSONResponse({"detail":"El PDF supera el límite de 20 MiB.", "codigo":"pdf_muy_grande"},
                                 status_code=413)
+        if _cargas_pdf.locked():
+            return JSONResponse({"detail":"Hay dos PDF en carga. Intenta otra vez en unos segundos.",
+                                 "codigo":"cargas_ocupadas"}, status_code=429, headers={"Retry-After": "5"})
+        async with _cargas_pdf:
+            return await call_next(request)
     return await call_next(request)
 
 
