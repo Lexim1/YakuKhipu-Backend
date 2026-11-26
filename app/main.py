@@ -55,6 +55,12 @@ async def proteger_escrituras(request: Request, call_next):
     return await call_next(request)
 
 
+@app.middleware("http")
+async def cabeceras_seguras(request: Request, call_next):
+    from .core.cabeceras import aplicar
+    return aplicar(await call_next(request), request.url.path)
+
+
 @app.get("/health", tags=["Sistema"])
 def health() -> dict:
     try:
