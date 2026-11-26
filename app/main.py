@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from .api import asistente, documentos, eps, publico, sesion, tramites, asignaciones
+from .api import asistente, documentos, eps, publico, sesion, tramites, asignaciones, finanzas, seguimiento
 from .core import errores
 from .core.config import settings
 from .core.db import engine
@@ -24,7 +24,7 @@ app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin], all
                    allow_methods=["GET", "POST", "PUT", "DELETE"], allow_headers=["Content-Type", "Idempotency-Key"],
                    expose_headers=["X-Logout-URL"])
 errores.registrar(app)
-for r in (sesion.router, sesion.auth_router, tramites.router, asignaciones.router, eps.router, documentos.router, publico.router, asistente.router):
+for r in (sesion.router, sesion.auth_router, tramites.router, asignaciones.router, eps.router, documentos.router, publico.router, asistente.router, finanzas.router, seguimiento.router):
     app.include_router(r)
 
 _cargas_pdf = Semaphore(2)
@@ -101,10 +101,17 @@ frontend_dist = Path(__file__).resolve().parent.parent / "frontend_dist"
 if frontend_dist.is_dir():
     app.mount("/assets", StaticFiles(directory=frontend_dist / "assets"), name="frontend-assets")
 
-    @app.get("/{ruta:path}", include_in_schema=False)
-    def frontend(ruta: str):
-        if ruta == "api" or ruta.startswith("api/"):
-            return JSONResponse({"detail": "Not Found"}, status_code=404)
+    @app.get('/', include_in_schema=False)
+    @app.get('/sunass', include_in_schema=False)
+    @app.get('/sunass/{ruta:path}', include_in_schema=False)
+    @app.get('/eps', include_in_schema=False)
+    @app.get('/eps/{ruta:path}', include_in_schema=False)
+    @app.get('/ciudadania', include_in_schema=False)
+    @app.get('/ciudadania/{ruta:path}', include_in_schema=False)
+    @app.get('/favicon.svg', include_in_schema=False)
+    @app.get('/logo.png', include_in_schema=False)
+    def frontend(request: Request):
+        ruta = request.url.path.lstrip('/')
         archivo = (frontend_dist / ruta).resolve()
         if archivo.is_relative_to(frontend_dist) and archivo.is_file():
             return FileResponse(archivo)

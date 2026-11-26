@@ -86527,6 +86527,7 @@ GRANT INSERT,UPDATE,DELETE ON tramite,documento,fragmento,publicacion,documento_
  conversacion,mensaje,respuesta_cache,fuente,lote_importacion,registro_fuente,encargo
  TO yakukhipu_final_api;
 GRANT INSERT ON actuacion,encargo_evento TO yakukhipu_final_api;
+GRANT UPDATE (verificada,documento_id) ON actuacion TO yakukhipu_final_api;
 GRANT INSERT,UPDATE ON asignacion_tramite TO yakukhipu_final_api;
 GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public,seguridad TO yakukhipu_final_api;
 -- No concede DDL ni modificación de usuario, rol o rol_permiso; tampoco UPDATE/DELETE del historial.

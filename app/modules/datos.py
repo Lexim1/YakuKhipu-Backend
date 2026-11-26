@@ -11,6 +11,10 @@ def contexto(db, tramite):
             JOIN fuente f ON f.id=r.fuente_id WHERE x.eps_id=:eps AND r.presente'''),{'eps':tramite.eps_id}).mappings().all()
         result[table]=[dict(r) for r in rows]
     result['nota']='Contexto por EPS; no demuestra causalidad ni ejecución de una decisión específica.'
+    row=db.execute(text('''SELECT p.*,r.source_hash,f.source_file FROM procedimiento_fuente p
+        JOIN registro_fuente r ON r.canonical_id=p.canonical_id JOIN fuente f ON f.id=r.fuente_id
+        WHERE p.tramite_id=:id AND r.presente'''),{'id':tramite.id}).mappings().first()
+    result['procedimiento']=dict(row) if row else None
     return result
 
 
