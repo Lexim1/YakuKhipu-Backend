@@ -22,6 +22,22 @@ class NuevaAsignacion(BaseModel):
     version: int = Field(ge=1)
     motivo: str = Field(min_length=3,max_length=1000)
 
+class CandidatoAsignacion(BaseModel):
+    id: str
+    nombre: str
+
+
+@router.get('/{tramite_id}/asignaciones/candidatos', response_model=list[CandidatoAsignacion])
+def candidatos(tramite_id: str, actor: Actor = Depends(actor_sunass),
+               db: Session = Depends(get_db)) -> list[CandidatoAsignacion]:
+    exigir(actor, 'asignacion.gestionar')
+    repo.obtener_tramite(db, actor, tramite_id)
+    consulta = select(Usuario).where(
+        Usuario.rol_id == 'analista_srt', Usuario.activo.is_(True),
+    ).order_by(Usuario.nombre_visible, Usuario.id)
+    return [CandidatoAsignacion(id=u.id, nombre=u.nombre_visible) for u in db.scalars(consulta)]
+
+
 @router.post('/{tramite_id}/asignaciones', status_code=201)
 def asignar(tramite_id: str, datos: NuevaAsignacion, actor: Actor = Depends(actor_sunass), db: Session = Depends(get_db)) -> dict:
     exigir(actor, 'asignacion.gestionar')
