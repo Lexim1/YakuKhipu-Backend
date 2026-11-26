@@ -64,10 +64,9 @@ def test_cookie_excesiva_responde_401(entorno):
 
 def test_asignacion_y_reasignacion_conservan_historial(entorno):
     e = entorno
-    base = e.db.get(Usuario,'operador')
     for uid in ('analista-a','analista-b'):
         e.db.add(Usuario(id=uid,nombre_visible=uid,perfil='sunass',rol_id='analista_srt',
-            activo=True,password_hash=base.password_hash,credenciales_version=1))
+            activo=True,credenciales_version=1))
     entrar(e)
     def asignar(uid, version):
         return e.client.post('/api/tramites/caso-a/asignaciones',json={

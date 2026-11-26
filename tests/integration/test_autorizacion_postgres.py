@@ -17,23 +17,20 @@ def test_login_asignacion_ambitos_y_logout_postgres(monkeypatch):
     from app.main import app
     from app.core.db import get_db
     from app.core.config import settings
-    from app.auth.passwords import hash_password
 
     engine = create_engine(url.replace('postgresql://','postgresql+psycopg://',1),connect_args={'connect_timeout':5})
     with engine.connect() as connection:
         transaction = connection.begin()
         db = Session(bind=connection,join_transaction_mode='create_savepoint',expire_on_commit=False)
         prefix = 'test-'+uuid.uuid4().hex[:12]
-        password = 'prueba-aislada-no-productiva'
-        digest = hash_password(password)
         rows = db.execute(text('SELECT id,eps_id,version FROM v_expedientes_portal ORDER BY id LIMIT 2')).all()
         assert len(rows) == 2
         tid, eid, version = rows[0]
         ids = {}
         for role in ('analista_srt','coordinacion_dre','jefatura_dre','eps'):
             ids[role] = prefix+'-'+role
-            db.execute(text('INSERT INTO usuario(id,nombre_visible,perfil,eps_id,rol_id,password_hash) VALUES (:id,:nombre,:perfil,:eps,:rol,:hash)'),
-                {'id':ids[role],'nombre':ids[role],'perfil':'eps' if role=='eps' else 'sunass','eps':eid if role=='eps' else None,'rol':role,'hash':digest})
+            db.execute(text('INSERT INTO usuario(id,nombre_visible,perfil,eps_id,rol_id) VALUES (:id,:nombre,:perfil,:eps,:rol)'),
+                {'id':ids[role],'nombre':ids[role],'perfil':'eps' if role=='eps' else 'sunass','eps':eid if role=='eps' else None,'rol':role})
         db.commit()
         # Las peticiones usan el rol técnico sin privilegios de administración.
         db.execute(text('SET LOCAL ROLE yakukhipu_final_api'))

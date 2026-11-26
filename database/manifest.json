@@ -1,12 +1,12 @@
 {
   "archivo": "yakukhipu_final.dump",
   "formato": "PostgreSQL custom (-Fc)",
-  "pg_dump_version": "17",
+  "pg_dump_version": "17.12",
   "origen": "SQL definitivo, no base activa de Railway",
   "source_commit_BK1": "00793e0",
-  "sql_sha256": "c6b24410be873121027ba4597367d172603bb89844f322026dca2d743ea2a4ab",
-  "dump_sha256": "83ba7517497a9983fd5c01d6dd2bc7a7d73fb30426affce93f9b1329bfa32cdb",
-  "bytes": 3815262,
+  "sql_sha256": "41fde92a27182eb078da7d41784915dda157122182ef34ce87cfe2e8ce2b643f",
+  "dump_sha256": "dac846305f9586b2ab6911a2f2fd3db435f5e861f79b790c694d1800c1dba62e",
+  "bytes": 3813960,
   "restauracion_validada": true,
   "conteos": {
     "tramite": 484,
