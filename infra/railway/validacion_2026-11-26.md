@@ -1,5 +1,21 @@
 # Comprobación posterior a los PR aprobados — 26/11/2026
 
+## Actualización tras la fusión del PR #15
+
+El PR #15 de Lexi quedó fusionado en master 8f64906. Portal y worker informan
+SUCCESS con el commit b31ec91 de esa implementación, aún desde la rama
+codex/worker-omniroute-cloud. El worker usa Dockerfile.worker y app.worker_runtime.
+Antes de borrar la rama de Lexi, hay que volver a enlazar los servicios a master
+y verificar que mantengan esos ajustes de construcción y arranque.
+
+El PR #14 se actualizó sobre ese master. Se resolvió el solapamiento de
+app/validar_nube.py conservando la validación de conexión privada y las ocho
+pruebas del PR #15. Se retiró la implementación duplicada del PR #14; sus
+cuatro pruebas adicionales comprueban el formato/contenido de la respuesta del
+agente. Las doce pruebas conjuntas pasaron. El PR #14 conserva las comprobaciones
+HTTP del portal y la documentación; no modifica el runtime ni las variables de
+OmniRoute. Las secciones siguientes son el historial de validaciones anteriores.
+
 ## Versiones y conexión
 
 GitHub confirmó la fusión de frontend PR 32 (master 317af4b) y backend PR 13
@@ -40,8 +56,9 @@ que requieran razonamiento obligatorio.
 
 Al revisar el trabajo concurrente se encontró `codex/worker-omniroute-cloud`,
 commit 5e1835f, con Dockerfile.worker, app/worker_runtime.py y su documentación.
-No modifica los archivos del PR de validación y no presenta solapamiento de
-archivos con él. Esa rama todavía no figura en master en esta comprobación.
+La primera revisión de 5e1835f no modificaba el validador. El commit posterior
+b31ec91 también ajustó app/validar_nube.py y añadió sus pruebas. Esa versión
+posterior se integró con el PR #15 y requirió resolver el solapamiento del PR #14.
 
 Las variables observadas ahora son distintas de la primera corrección:
 portal llama a worker.railway.internal y worker a 127.0.0.1, usando el combo

@@ -120,17 +120,18 @@ modelos que consumían los tokens en razonamiento sin devolver texto. No copiar
 `none` a un modelo con razonamiento obligatorio: volver a comprobar soporte,
 formato y disponibilidad al cambiarlo. La clave existente se conserva como secreto.
 
-La rama `codex/worker-omniroute-cloud` de Lexi incorpora posteriormente OmniRoute
+El PR #15 de Lexi, ya fusionado en master, incorpora OmniRoute
 al worker. La configuración observada después apunta portal a
 `http://worker.railway.internal:20128/v1`, worker a `http://127.0.0.1:20128/v1`
 y usa `LLM_MODEL=yakukhipu` en ambos. Ese nombre es un combo de OmniRoute;
 el proveedor y modelo efectivos se configuran allí. No sustituir estas variables
 por OpenRouter directo al fusionar este PR ni asumir que el combo usa un modelo
-concreto sin revisar su configuración. Integrar también la rama del worker para
-que GitHub conserve el runtime que corresponde al despliegue.
+concreto sin revisar su configuración. Conservar `Dockerfile.worker` y
+`app.worker_runtime` del PR #15 al desplegar el worker. Después de su fusión,
+comprobar también la rama de origen de cada servicio en Railway.
 
 El validador admite HTTPS para proveedores externos y HTTP únicamente para
-ese gateway privado o loopback en puerto 20128 y ruta /v1. Los endpoints públicos
+ese gateway privado o loopback en puerto 20128, según la validación del PR #15. Los endpoints públicos
 del portal, Keycloak y almacenamiento siguen requiriendo HTTPS.
 
 El worker requiere `DATABASE_URL`, las seis variables `PDF_*` y las cuatro
