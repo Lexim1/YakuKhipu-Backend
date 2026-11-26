@@ -34,9 +34,18 @@ def configuracion() -> None:
         raise ValueError("Se requieren COOKIE_SECURE=true, LLM_ENABLED=true y SECRET_KEY de 32+ caracteres.")
     if settings.portal_origin.rstrip("/") != settings.frontend_origin.rstrip("/"):
         raise ValueError("PORTAL_ORIGIN y FRONTEND_ORIGIN deben coincidir en este despliegue BFF.")
-    for nombre in ("portal_origin", "oidc_issuer", "pdf_endpoint", "llm_base_url"):
+    for nombre in ("portal_origin", "oidc_issuer", "pdf_endpoint"):
         if urlsplit(getattr(settings, nombre)).scheme != "https":
             raise ValueError(f"{nombre.upper()} debe usar HTTPS.")
+    llm_url = urlsplit(settings.llm_base_url)
+    llm_privado = (
+        llm_url.scheme == "http"
+        and llm_url.hostname in {"worker.railway.internal", "127.0.0.1"}
+        and llm_url.port == 20128
+        and llm_url.username is None and llm_url.password is None
+    )
+    if llm_url.scheme != "https" and not llm_privado:
+        raise ValueError("LLM_BASE_URL debe usar HTTPS o el OmniRoute privado del worker en el puerto 20128.")
     if settings.fecha_demo is not None:
         raise ValueError("FECHA_DEMO debe estar vacía en la validación de nube.")
 
