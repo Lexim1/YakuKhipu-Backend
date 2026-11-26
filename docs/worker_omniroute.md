@@ -28,3 +28,9 @@ La comprobación exige ambos procesos vivos y la API de OmniRoute disponible.
 `OMNIROUTE_MEMORY_MB=320` limita el heap de Node; el consumo total incluye Python,
 OCR y memoria nativa y debe observarse en Railway. Un volumen no añade servicios.
 El servicio debe mantenerse activo (`sleepApplication=false`), con una réplica.
+
+Portal conserva el `Dockerfile` habitual; únicamente worker usa `Dockerfile.worker`.
+Ambos despliegan la rama `codex/worker-omniroute-cloud` mientras se revisa el PR.
+No borrar esa rama antes de integrar el cambio y volver a enlazar los servicios a master.
+`python -m app.validar_nube` admite HTTPS para proveedores externos y HTTP solamente
+para `worker.railway.internal:20128` o `127.0.0.1:20128`, usados por OmniRoute.
