@@ -19,10 +19,10 @@ El SQL crea yakukhipu_final_api como rol técnico NOLOGIN. Crear una cuenta LOGI
 Provisionar cuentas reales, sin cuentas de demo:
 
 ```powershell
-python -m scripts.usuario_sql_final --id ID_REAL --nombre 'Nombre real' --rol analista_srt
+python -m scripts.usuario_sql_final --id ID_REAL --nombre 'Nombre real' --rol analista_srt --oidc-issuer 'https://<keycloak>/realms/yakukhipu' --oidc-subject SUB_VERIFICADO
 ```
 
-Roles: analista_srt, coordinacion_dre, jefatura_dre y eps. Solo EPS requiere --eps-id. El script solicita la contraseña sin mostrarla y emite un INSERT scrypt para ejecutar manualmente.
+Roles: analista_srt, coordinacion_dre, jefatura_dre y eps. Solo EPS requiere --eps-id. Crea antes la cuenta individual en Keycloak y usa su `sub` verificado; el script no solicita contraseñas.
 
 ```powershell
 python -m uvicorn app.main:app --reload
@@ -32,7 +32,7 @@ python -m scripts.exportar_openapi
 
 ## Organización
 
-- app/auth: sesiones persistentes, contraseñas y permisos.
+- app/auth: OIDC, sesiones persistentes y permisos.
 - app/api: transporte HTTP y validación de entrada.
 - app/modules: lógica por dominio (trámites, EPS, publicaciones, documentos, plazos y agente).
 - app/repositories: filtros de acceso a expedientes/documentos.
@@ -43,7 +43,7 @@ python -m scripts.exportar_openapi
 
 ## Seguridad y alcance
 
-En el despliegue OIDC, FastAPI inicia el acceso en Keycloak y vincula la identidad con un usuario local. La sesión usa una cookie HttpOnly firmada que identifica una sesión opaca persistida en seguridad.sesion. Logout revoca la sesión en la BD. La desactivación y el cambio de credenciales o rol invalidan las sesiones. Los permisos se leen de seguridad.rol_permiso en cada petición. El acceso con contraseña local queda disponible para pruebas de API sin configuración OIDC.
+FastAPI inicia el acceso en Keycloak y vincula la identidad con un usuario del portal. La sesión usa una cookie HttpOnly firmada que identifica una sesión opaca persistida en seguridad.sesion. Logout revoca la sesión en la BD. La desactivación y el cambio de rol invalidan las sesiones. Los permisos se leen de seguridad.rol_permiso en cada petición. La API no ofrece ingreso con contraseña local.
 
 La carga PDF crea una recepción y un trabajo persistente. El worker obtiene el original de un bucket privado, extrae el texto y aplica OCR en español cuando corresponde. Tras la incorporación autorizada, el agente usa los fragmentos por página. Consulta [el despliegue Railway](infra/railway/README.md).
 

@@ -10,6 +10,10 @@ def test_login_asignacion_ambitos_y_logout_postgres(monkeypatch):
     from sqlalchemy import create_engine, text
     from sqlalchemy.orm import Session
     from fastapi.testclient import TestClient
+    from fastapi import Response
+    from http.cookies import SimpleCookie
+    from app.auth import sesion
+    from app.models import Usuario
     from app.main import app
     from app.core.db import get_db
     from app.core.config import settings
@@ -38,7 +42,11 @@ def test_login_asignacion_ambitos_y_logout_postgres(monkeypatch):
         try:
             with TestClient(app) as client:
                 def login(role):
-                    r = client.post('/api/sesion',json={'usuario_id':ids[role],'password':password})
+                    respuesta = Response()
+                    sesion.abrir(respuesta,db.get(Usuario,ids[role]),db)
+                    cookie = SimpleCookie(); cookie.load(respuesta.headers['set-cookie'])
+                    client.cookies.set(sesion.COOKIE,cookie[sesion.COOKIE].value)
+                    r = client.get('/api/sesion')
                     assert r.status_code == 200, r.text
                     assert r.json()['rol_id'] == role
                 login('analista_srt')

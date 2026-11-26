@@ -111,115 +111,6 @@
           }
         ]
       },
-      "post": {
-        "tags": [
-          "Sesión"
-        ],
-        "summary": "Iniciar sesión con credenciales provisionadas",
-        "operationId": "autenticar_api_sesion_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Credenciales"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Sesion"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorApi"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorApi"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorApi"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorApi"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorApi"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too Many Requests",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorApi"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorApi"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorApi"
-                }
-              }
-            }
-          }
-        }
-      },
       "delete": {
         "tags": [
           "Sesión"
@@ -4769,7 +4660,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Version"
           }
         },
@@ -4780,29 +4671,6 @@
           "version"
         ],
         "title": "ConfirmarVinculo"
-      },
-      "Credenciales": {
-        "properties": {
-          "usuario_id": {
-            "type": "string",
-            "maxLength": 80,
-            "minLength": 1,
-            "title": "Usuario Id"
-          },
-          "password": {
-            "type": "string",
-            "maxLength": 256,
-            "minLength": 1,
-            "title": "Password"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "usuario_id",
-          "password"
-        ],
-        "title": "Credenciales"
       },
       "DecisionPublica": {
         "properties": {
@@ -5582,7 +5450,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Version"
           }
         },
@@ -5818,7 +5686,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Version",
             "description": "Versión observada por el frontend; si cambió responde 409"
           },
@@ -5826,8 +5694,8 @@
             "anyOf": [
               {
                 "type": "integer",
-                "maximum": 60.0,
-                "minimum": 1.0
+                "maximum": 60,
+                "minimum": 1
               },
               {
                 "type": "null"
@@ -5886,8 +5754,8 @@
             "anyOf": [
               {
                 "type": "integer",
-                "maximum": 9.0,
-                "minimum": 1.0
+                "maximum": 9,
+                "minimum": 1
               },
               {
                 "type": "null"
@@ -5915,7 +5783,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Version"
           },
           "motivo": {
@@ -6010,7 +5878,7 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Version"
           }
         },
@@ -6148,7 +6016,7 @@
         "properties": {
           "version": {
             "type": "integer",
-            "minimum": 1.0,
+            "minimum": 1,
             "title": "Version"
           },
           "titulo": {
@@ -6533,7 +6401,7 @@
     "securitySchemes": {
       "APIKeyCookie": {
         "type": "apiKey",
-        "description": "Cookie HttpOnly obtenida en POST /api/sesion",
+        "description": "Cookie HttpOnly obtenida tras el ingreso OIDC",
         "in": "cookie",
         "name": "yakukhipu_sesion"
       }

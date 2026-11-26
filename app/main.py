@@ -55,7 +55,7 @@ def health() -> dict:
     # «ingreso» y «carga_pdf» le dicen al frontend qué mostrar: botón institucional (OIDC) o formulario
     # de contraseña, y si puede ofrecer la carga de PDF. No revelan secretos ni direcciones.
     return {"estado": "ok" if base=='ok' else 'degradado', "base_de_datos": base, "asistente": "habilitado" if settings.llm_enabled else "deshabilitado",
-            "sesion": "persistente", "ingreso": "oidc" if settings.oidc_issuer or settings.portal_origin else "clave",
+            "sesion": "persistente", "ingreso": "oidc",
             "carga_pdf": "habilitada" if settings.pdf_bucket else "deshabilitada"}
 
 

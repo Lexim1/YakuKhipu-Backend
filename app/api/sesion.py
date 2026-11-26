@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Response, Request
-from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.orm import Session
 
 import httpx
@@ -11,8 +10,7 @@ from fastapi.responses import RedirectResponse
 from ..auth import oidc, sesion
 from ..core.config import settings
 from ..core.db import get_db
-from ..core.errores import ErrorNegocio, SinSesion, ServicioNoDisponible
-from ..auth.passwords import verify_password
+from ..core.errores import ErrorNegocio
 from ..models import Eps, Usuario
 from ..schemas.salidas import Sesion
 
@@ -41,25 +39,6 @@ def callback_oidc(request: Request, state: str = "", code: str = "", db: Session
         sesion.abrir(respuesta, usuario, db)
         respuesta.headers["location"] = "/eps/tramites" if usuario.perfil == "eps" else "/sunass/expedientes"
     return respuesta
-
-
-class Credenciales(BaseModel):
-    model_config=ConfigDict(extra='forbid')
-    usuario_id: str = Field(min_length=1,max_length=80)
-    password: str = Field(min_length=1,max_length=256)
-
-
-@router.post('', response_model=Sesion, summary='Iniciar sesión con credenciales provisionadas')
-def autenticar(datos: Credenciales, respuesta: Response, db: Session = Depends(get_db)) -> dict:
-    if settings.oidc_issuer or settings.portal_origin:
-        raise SinSesion('Utiliza el ingreso institucional.')
-    if len(settings.secret_key)<32:
-        raise ServicioNoDisponible('Configura SECRET_KEY con al menos 32 caracteres.')
-    u = db.get(Usuario,datos.usuario_id)
-    if u is None or not u.activo or sesion.ROLES.get(u.rol_id) != u.perfil or not verify_password(datos.password,u.password_hash):
-        raise SinSesion('Credenciales no válidas.')
-    sesion.abrir(respuesta,u,db)
-    return _vista(db,u)
 
 
 def _vista(db: Session, u: Usuario) -> dict:
