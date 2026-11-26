@@ -1,0 +1,34 @@
+# Entornos y credenciales
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Frontend
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Backend
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Archivos de trabajo
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+
+# Salidas locales (pueden contener texto de los expedientes)
+scripts/salidas/
+# Documentos de los casos: nunca en el repositorio público
+*.pdf
+fragmentos*.json
+cache_respuestas*.json
+sql/local/
+
