@@ -52,8 +52,7 @@ def health() -> dict:
         base = "ok"
     except Exception:  # noqa: BLE001 - el chequeo informa, no falla
         base = "sin_conexion"
-    # «ingreso» y «carga_pdf» le dicen al frontend qué mostrar: botón institucional (OIDC) o formulario
-    # de contraseña, y si puede ofrecer la carga de PDF. No revelan secretos ni direcciones.
+    # «ingreso» y «carga_pdf» informan el acceso OIDC y la carga de PDF sin revelar secretos.
     return {"estado": "ok" if base=='ok' else 'degradado', "base_de_datos": base, "asistente": "habilitado" if settings.llm_enabled else "deshabilitado",
             "sesion": "persistente", "ingreso": "oidc",
             "carga_pdf": "habilitada" if settings.pdf_bucket else "deshabilitada"}
