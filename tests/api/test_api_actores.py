@@ -8,7 +8,6 @@ from http.cookies import SimpleCookie
 from app.main import app
 from app.core.db import get_db
 from app.core.config import settings
-from app.auth.passwords import hash_password
 from app.models import Eps,Usuario,Tramite,Documento,Fragmento,Publicacion
 from app.api import asistente as router_agente
 from app.modules import datos
@@ -29,9 +28,8 @@ def entorno(monkeypatch):
     import app.api.tramites as rutas
     monkeypatch.setattr(rutas,'contexto',lambda db,t:{'eps_id':t.eps_id,'programa_inversion':[]})
     for eid in ('eps-a','eps-b'): db.add(Eps(id=eid,nombre=eid,region='Región',tamano='Pequeña',simulado=False))
-    password=hash_password('contraseña-aislada')
     for uid,perfil,eid in [('operador','sunass',None),('empresa-a','eps','eps-a'),('empresa-b','eps','eps-b')]:
-        db.add(Usuario(id=uid,nombre_visible=uid,perfil=perfil,eps_id=eid,activo=True,password_hash=password,
+        db.add(Usuario(id=uid,nombre_visible=uid,perfil=perfil,eps_id=eid,activo=True,
                        rol_id="jefatura_dre" if perfil=="sunass" else "eps",credenciales_version=1))
     from app.models.seguridad import RolPermiso
     permisos = ["expediente.consultar","trazabilidad.consultar","alerta.consultar","agente.consultar",

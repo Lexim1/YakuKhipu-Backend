@@ -40,7 +40,7 @@ CREATE TABLE eps (
 CREATE TABLE usuario (
  id varchar(80) PRIMARY KEY, nombre_visible text NOT NULL,
  perfil text NOT NULL CHECK(perfil IN ('sunass','eps')), eps_id varchar(80) REFERENCES eps(id),
- activo boolean NOT NULL DEFAULT true, password_hash text,
+ activo boolean NOT NULL DEFAULT true,
  CHECK((perfil='eps' AND eps_id IS NOT NULL) OR (perfil='sunass' AND eps_id IS NULL))
 );
 CREATE TABLE proyecto_inversion (
@@ -86333,9 +86333,6 @@ ALTER TABLE usuario ADD COLUMN rol_id varchar(30) NOT NULL;
 ALTER TABLE usuario ADD COLUMN credenciales_version integer NOT NULL DEFAULT 1 CHECK(credenciales_version>0);
 ALTER TABLE usuario ADD COLUMN creado timestamptz NOT NULL DEFAULT now();
 ALTER TABLE usuario ADD CONSTRAINT usuario_rol_perfil_fk FOREIGN KEY(rol_id,perfil) REFERENCES seguridad.rol(id,perfil);
-ALTER TABLE usuario ADD CONSTRAINT usuario_hash_seguro CHECK
- (password_hash IS NULL OR password_hash ~ '^scrypt\$[0-9a-f]{32}\$[0-9a-f]{128}$');
-ALTER TABLE usuario ADD CONSTRAINT usuario_activo_con_credencial CHECK(NOT activo OR password_hash IS NOT NULL);
 
 CREATE TABLE seguridad.sesion (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), usuario_id varchar(80) NOT NULL REFERENCES usuario(id),
@@ -86347,10 +86344,6 @@ CREATE TABLE seguridad.sesion (
 );
 CREATE INDEX sesion_usuario ON seguridad.sesion(usuario_id);
 CREATE INDEX sesion_activa_vence ON seguridad.sesion(vence) WHERE revocada_en IS NULL;
-CREATE TABLE seguridad.intento_acceso (
- clave_hash varchar(64) PRIMARY KEY CHECK(clave_hash ~ '^[0-9a-f]{64}$'),
- intentos integer NOT NULL CHECK(intentos>0), ventana_fin timestamptz NOT NULL
-);
 CREATE TABLE seguridad.evento_acceso (
  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, usuario_id varchar(80) REFERENCES usuario(id),
  evento text NOT NULL CHECK(evento IN ('login_correcto','login_fallido','logout','renovacion','revocacion')),
@@ -86360,7 +86353,7 @@ CREATE TABLE seguridad.evento_acceso (
 CREATE FUNCTION seguridad.revocar_por_cambio_usuario() RETURNS trigger
  LANGUAGE plpgsql SET search_path=pg_catalog,public,seguridad AS $$
 BEGIN
- IF NEW.password_hash IS DISTINCT FROM OLD.password_hash OR NEW.rol_id IS DISTINCT FROM OLD.rol_id
+ IF NEW.rol_id IS DISTINCT FROM OLD.rol_id
     OR NEW.eps_id IS DISTINCT FROM OLD.eps_id OR NEW.activo IS DISTINCT FROM OLD.activo THEN
   NEW.credenciales_version=OLD.credenciales_version+1;
  END IF;
@@ -86528,7 +86521,7 @@ GRANT CONNECT ON DATABASE yakukhipu_final TO yakukhipu_final_api;
 GRANT USAGE ON SCHEMA public,seguridad TO yakukhipu_final_api;
 GRANT SELECT ON ALL TABLES IN SCHEMA public,seguridad TO yakukhipu_final_api;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA seguridad TO yakukhipu_final_api;
-GRANT INSERT,UPDATE ON seguridad.sesion,seguridad.intento_acceso TO yakukhipu_final_api;
+GRANT INSERT,UPDATE ON seguridad.sesion TO yakukhipu_final_api;
 GRANT INSERT ON seguridad.evento_acceso TO yakukhipu_final_api;
 GRANT INSERT,UPDATE,DELETE ON tramite,documento,fragmento,publicacion,documento_recibido,alerta,
  conversacion,mensaje,respuesta_cache,fuente,lote_importacion,registro_fuente,encargo
