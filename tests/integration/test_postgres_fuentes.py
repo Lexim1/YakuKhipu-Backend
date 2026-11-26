@@ -7,7 +7,7 @@ def test_integridad_postgres():
     url=os.environ.get('VERIFY_DATABASE_URL')
     if not url: pytest.skip('Configura VERIFY_DATABASE_URL después de ejecutar los SQL manualmente.')
     import psycopg
-    with psycopg.connect(url,connect_timeout=5) as connection:
+    with psycopg.connect(url.replace('postgresql+psycopg://', 'postgresql://', 1),connect_timeout=5) as connection:
         connection.execute('SET TRANSACTION READ ONLY')
         assert connection.execute('SELECT count(*) FROM documento').fetchone()[0]==31
         assert connection.execute('SELECT count(*) FROM fragmento').fetchone()[0]==729

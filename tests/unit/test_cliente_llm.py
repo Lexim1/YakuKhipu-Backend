@@ -8,6 +8,7 @@ from app.core.config import settings
 @pytest.mark.parametrize('codigo,respuesta,exito,llamadas',[
     (200,{'choices':[{'message':{'content':'respuesta'}}]},True,1),
     (200,{'choices':None},False,2),
+    (200,{'choices':[{'message':{'content':''}}]},False,2),
     (200,{'choices':[{'message':{'content':{'objeto':'no textual'}}}]},False,2),
     (401,{'error':'clave-privada'},False,1),
     (429,{'error':'cuota'},False,2),

@@ -26,4 +26,24 @@ El agente institucional POST /api/agente/chat usa la misma sesión, permiso agen
 
 Los valores sin evidencia permanecen null; no convertirlos a cero ni calcular plazos legales en el navegador. Solicitado, autorizado y ejecutado son conceptos distintos.
 
-El frontend existente aún no implementa este flujo de sesión ni los tres menús SUNASS. Su integración está fuera de esta corrección.
+El frontend publicado se integra mediante el commit fijado en Dockerfile; actualizar ese commit y verificar el despliegue cuando se aprueba una nueva versión del frontend.
+
+## Recepción manual y derivación
+
+No existe conexión automática a Mesa de Partes. Coordinación o Jefatura registra el PDF recibido externamente con referencia, fecha y EPS. POST /api/recepcion/pdf almacena el original en el bucket privado y encola la extracción/OCR. El límite es 20 MiB, 80 páginas y dos cargas simultáneas por proceso de API (429 con Retry-After cuando está ocupado). El OCR y el análisis se ejecutan en el worker.
+
+GET /api/recepcion/catalogos devuelve empresas y analistas activos; exige recepcion.gestionar. POST /api/recepcion/expedientes recibe documento_id, procedimiento (CPI/UFI/RP), fecha_ingreso y asignado_a. Exige también asignacion.gestionar, PDF procesado si corresponde, fecha entre la del documento y hoy y analista activo. Devuelve 201 con tramite_id y version. Crea el expediente, incorpora el documento y conserva recepción, asignación y procedencia en una operación. Un documento también puede incorporarse a un expediente abierto existente, con su versión vigente y la misma EPS. Esa ruta devuelve 204 sin JSON.
+
+El analista accede al expediente después de la asignación activa. Un listado vacío puede indicar ausencia de asignaciones y no justifica ampliar el ámbito de ese perfil.
+
+## Alertas de calidad
+
+GET /api/alertas añade reporte_faltante, avance_inconsistente, dato_duplicado, saldo_inconsistente y deposito_insuficiente. Son observaciones pendientes de verificación, con regla y referencias fuente; no determinan incumplimientos legales ni cambian el expediente automáticamente. Se restringen a las EPS de los expedientes visibles para la persona.
+
+La ausencia de reportes se compara con el último trimestre disponible en los datos autorizados, excluyendo proyectos concluidos/cancelados. No se presupone un reporte futuro vencido. Los duplicados incluyen la cuarentena del importador. El saldo compara inicial + depósito + intereses − uso ejecutado − uso excepcional contra saldo final (tolerancia S/ 0,01; valores nulos no se convierten a cero). Los depósitos se agrupan por EPS/fondo, indicando número de registros inferiores al programado y número inferior al 50 %, con las últimas cinco referencias.
+
+## Disponibilidad del agente
+
+El chat documental mantiene los controles de ámbito y citas. Su generación y corrección tienen un presupuesto total de 35 segundos. Si el modelo falla o produce una respuesta no verificable, se pueden devolver extractos autorizados con una advertencia visible y modelo nulo; no se cachean ni se guardan como propuesta automática generada. Sin extractos disponibles se mantiene la respuesta de indisponibilidad o falta de fuentes. Los logs del proveedor incluyen códigos HTTP/tipos de error, sin claves ni contenido documental.
+
+El panel de cartera consulta los endpoints de expedientes/alertas para preguntas de vencimientos o calidad; identifica que es una consulta de datos, sin análisis generado. Para preguntas documentales se abre el expediente.

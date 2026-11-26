@@ -18,6 +18,8 @@ from soporte_api import Memoria
 @pytest.fixture
 def entorno(monkeypatch):
     db=Memoria()
+    from app.modules import calidad
+    monkeypatch.setattr(calidad, 'listar', lambda db, tramites: [])
     monkeypatch.setattr(settings,'secret_key','clave-aislada-de-pruebas-http-de-32-caracteres')
     monkeypatch.setattr(settings,'cache_activa',False)
     monkeypatch.setattr(settings,'fecha_demo',date(2026,11,22))
@@ -167,7 +169,7 @@ def test_recepcion_incorporacion_y_documentos(entorno):
     assert r.status_code==201,r.text
     did=r.json()['id']
     assert e.client.post('/api/recepcion',json=datos,headers={'Idempotency-Key':'recepcion-1'}).json()['id']==did
-    r=e.client.post('/api/recepcion/incorporaciones',json={'documento_id':did,'tramite_id':'caso-a','tipo_actuacion':'respuesta','asignado_a':'SRT','version':1})
+    r=e.client.post('/api/recepcion/incorporaciones',json={'documento_id':did,'tramite_id':'caso-a','tipo_actuacion':'respuesta','asignado_a':None,'version':1})
     assert r.status_code==204,r.text
     assert e.client.get('/api/documentos/'+did+'/contenido').json()['paginas'][0]['texto']==datos['texto']
 

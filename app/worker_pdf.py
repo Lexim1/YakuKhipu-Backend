@@ -134,10 +134,10 @@ def main():
     cliente()
     while True:
         try:
-            if ciclo():
-                continue
+            leido = ciclo()
             from .modules import propuestas
-            if asyncio.run(propuestas.ciclo()):
+            analizado = asyncio.run(propuestas.ciclo())
+            if leido or analizado:
                 continue
         except Exception as exc:
             LOG.error("El worker no pudo completar el ciclo: %s", type(exc).__name__)
