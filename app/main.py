@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from .api import asistente, documentos, eps, publico, sesion, tramites, asignaciones
@@ -76,3 +79,21 @@ def ready() -> dict:
     except Exception:
         raise ServicioNoDisponible('La conexión o el esquema de PostgreSQL aún no están disponibles.')
     return {'estado':'ok'}
+
+
+# Railway sirve React y la API desde el mismo origen. Fuera de la imagen web,
+# por ejemplo en pruebas unitarias, la API puede arrancar sin los archivos.
+frontend_dist = Path(__file__).resolve().parent.parent / "frontend_dist"
+if frontend_dist.is_dir():
+    app.mount("/assets", StaticFiles(directory=frontend_dist / "assets"), name="frontend-assets")
+
+    @app.get("/{ruta:path}", include_in_schema=False)
+    def frontend(ruta: str):
+        if ruta == "api" or ruta.startswith("api/"):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        archivo = (frontend_dist / ruta).resolve()
+        if archivo.is_relative_to(frontend_dist) and archivo.is_file():
+            return FileResponse(archivo)
+        if "." in Path(ruta).name:
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        return FileResponse(frontend_dist / "index.html")
