@@ -3,6 +3,8 @@ from datetime import date,datetime,timezone
 from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
+from fastapi import Response
+from http.cookies import SimpleCookie
 from app.main import app
 from app.core.db import get_db
 from app.core.config import settings
@@ -60,7 +62,12 @@ def entorno(monkeypatch):
 
 
 def entrar(e,uid='operador'):
-    r=e.client.post('/api/sesion',json={'usuario_id':uid,'password':'contraseña-aislada'})
+    from app.auth import sesion
+    respuesta=Response()
+    sesion.abrir(respuesta,e.db.get(Usuario,uid),e.db)
+    cookie=SimpleCookie(); cookie.load(respuesta.headers['set-cookie'])
+    e.client.cookies.set(sesion.COOKIE,cookie[sesion.COOKIE].value)
+    r=e.client.get('/api/sesion')
     assert r.status_code==200,r.text
     return r
 

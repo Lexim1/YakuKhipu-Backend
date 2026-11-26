@@ -21,7 +21,7 @@ from ..core.db import get_db
 from ..core.errores import AccesoDenegado, SinSesion
 
 COOKIE = "yakukhipu_sesion"
-cookie_auth=APIKeyCookie(name=COOKIE,auto_error=False,description='Cookie HttpOnly obtenida en POST /api/sesion')
+cookie_auth=APIKeyCookie(name=COOKIE,auto_error=False,description='Cookie HttpOnly obtenida tras el ingreso OIDC')
 
 
 def _firma(valor: str) -> str:
