@@ -6,6 +6,7 @@ from ..models.seguridad import RolPermiso
 ROLES = {'analista_srt': 'sunass', 'coordinacion_dre': 'sunass', 'jefatura_dre': 'sunass', 'eps': 'eps'}
 ACCIONES = {
     'validar_expediente': 'evaluacion.validar', 'confirmar_vinculo': 'evaluacion.validar',
+    'registrar_informe': 'evaluacion.validar',
     'avanzar_paso': 'acto_externo.registrar', 'resolver': 'acto_externo.registrar',
     'requerir_informacion': 'requerimiento.registrar', 'requerir_subsanacion': 'requerimiento.registrar',
     'verificar_respuesta': 'respuesta.verificar', 'informar_presentacion': 'eps.respuesta_informar',

@@ -108,6 +108,11 @@ def informar_respuesta(db: Session, actor: Actor, tramite_id: str, datos: dict, 
     if presentado > hoy:
         raise DatosInvalidos("La fecha de presentación no puede ser futura.")
     accion = f["siguiente_accion"]
+    desde = date.fromisoformat(accion['fecha_requerimiento']) if accion.get('fecha_requerimiento') else t.fecha_inicio
+    if desde and presentado < desde:
+        raise DatosInvalidos('La presentación no puede ser anterior al requerimiento o al ingreso del expediente.')
+    if doc and doc.id == accion.get('fuente_documento_id'):
+        raise DatosInvalidos('El oficio que requiere información no es el documento de respuesta de la EPS.')
     fecha_texto = plazos.fecha_corta(presentado)
     pedido = next((i for i, p in enumerate(f["seguimiento"]) if p["estado"] == "actual"), None)
     anteriores = f["seguimiento"][:pedido] if pedido is not None else [p for p in f["seguimiento"] if p["estado"] == "hecho"]
@@ -118,6 +123,7 @@ def informar_respuesta(db: Session, actor: Actor, tramite_id: str, datos: dict, 
         "siguiente_accion": None, "aviso": None,
         "respuesta_informada": {"documento": referencia, "fecha_presentacion": presentado.isoformat(),
                                 "fecha_texto": fecha_texto, "canal": datos["canal"], "cargo": datos.get("cargo"),
+                                "requerimiento_documento_id": accion.get('fuente_documento_id'),
                                 "verificada": False},
         "seguimiento": anteriores + [
             {"titulo": f"{verbo} con el {referencia}", "fecha_texto": fecha_texto, "estado": "hecho"},

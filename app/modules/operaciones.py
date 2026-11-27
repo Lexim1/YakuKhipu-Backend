@@ -45,7 +45,7 @@ def registrar_procedencia(db, rid, digest, serial):
 
 
 def registrar_expediente(db, actor, datos, hoy):
-    exigir(actor, "asignacion.gestionar")
+    exigir(actor, "recepcion.gestionar")
     recibido = recepcion_pendiente(db, actor, datos["documento_id"])
     fecha = datos["fecha_ingreso"]
     if fecha > hoy or fecha.isoformat() < recibido.datos["fecha_documento"]:
@@ -64,16 +64,35 @@ def registrar_expediente(db, actor, datos, hoy):
                       titulo=recibido.datos["titulo"], estado="en_evaluacion",
                       paso_actual=1, etapa=PASOS[procedimiento][0][0],
                       fecha_inicio=fecha, fecha_inicio_etapa=fecha,
-                      simulado=False, publicable=False)
+                      responsable='Jefatura DRE',
+                      simulado=bool(recibido.datos.get('simulado')), publicable=False)
     try:
         registrar_procedencia(db, tid, hashlib.sha256(payload.encode()).hexdigest(), payload)
         db.add(tramite)
         db.flush()
-        incorporar_en_tramite(db, actor, recibido, tramite, "Derivación a Analista SRT", datos["asignado_a"], fecha)
+        incorporar_en_tramite(db, actor, recibido, tramite, "Registro de solicitud recibida", datos.get("asignado_a"), fecha)
     except IntegrityError as exc:
         db.rollback()
         raise Conflicto("El ingreso ya fue registrado o cambió. Actualiza la bandeja.") from exc
     return {"tramite_id": tramite.id, "version": tramite.version}
+
+
+def revisar_visibilidad(db, actor, tramite_id, documento_id, datos, hoy):
+    exigir(actor, 'recepcion.gestionar')
+    t = repo.obtener_tramite(db, actor, tramite_id, bloquear=True)
+    doc = repo.obtener_documento(db, actor, documento_id)
+    if doc.tramite_id != t.id:
+        raise DatosInvalidos('El documento pertenece a otro expediente.')
+    if t.version != datos['version']:
+        raise Conflicto('El expediente cambió. Actualiza antes de revisar la visibilidad.')
+    if doc.visibilidad == 'publica':
+        raise Conflicto('Revisa la publicación antes de cambiar un documento público.')
+    if doc.visibilidad != datos['visibilidad']:
+        doc.visibilidad = datos['visibilidad']
+        _guardar(db, t, _nueva(t, actor, 'revisar_visibilidad',
+            'Documento compartido con la EPS' if doc.visibilidad == 'partes' else 'Documento reservado al equipo SUNASS',
+            {'documento_id': doc.id, 'detalle': datos['motivo'], 'fecha_acreditada': hoy}))
+    return {'documento_id': doc.id, 'visibilidad': doc.visibilidad, 'version': t.version}
 
 
 def publicar_decision(db,actor,tramite_id,datos,hoy):

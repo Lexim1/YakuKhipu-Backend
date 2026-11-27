@@ -14,7 +14,7 @@ class Entrada(BaseModel):
 
 class NuevaActuacion(Entrada):
     """POST /api/tramites/{id}/eventos."""
-    tipo: Literal["avanzar_paso", "requerir_informacion", "requerir_subsanacion", "verificar_respuesta", "resolver", "confirmar_vinculo", "validar_expediente"]
+    tipo: Literal["avanzar_paso", "registrar_informe", "requerir_informacion", "requerir_subsanacion", "verificar_respuesta", "resolver", "confirmar_vinculo", "validar_expediente"]
     titulo: str | None = Field(default=None, max_length=200)
     detalle: str | None = Field(default=None, max_length=2000)
     documento_id: str | None = Field(default=None, max_length=120)
@@ -23,6 +23,7 @@ class NuevaActuacion(Entrada):
     plazo_dias: int | None = Field(default=None, ge=1, le=60, description="Solo para requerir_informacion")
     requisitos: list[str] | None = None
     resultado: Literal["autorizado", "no_autorizado"] | None = None
+    alcance_autorizacion: Literal['total', 'parcial'] | None = None
     estado_validado: Literal['en_evaluacion','autorizado','no_autorizado','concluido'] | None = None
     paso_validado: int | None = Field(default=None,ge=1,le=9)
 
@@ -62,4 +63,10 @@ class NuevoExpedienteRecepcion(Entrada):
     documento_id: str = Field(min_length=3, max_length=120)
     procedimiento: Literal["CPI", "UFI", "RP"]
     fecha_ingreso: date
-    asignado_a: str = Field(min_length=2, max_length=80)
+    asignado_a: str | None = Field(default=None, min_length=2, max_length=80)
+
+
+class RevisionVisibilidad(Entrada):
+    visibilidad: Literal['interna', 'partes']
+    motivo: str = Field(min_length=3, max_length=1000)
+    version: int = Field(ge=1)

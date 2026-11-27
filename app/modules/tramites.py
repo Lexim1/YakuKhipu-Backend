@@ -118,8 +118,8 @@ def flujo(t: Tramite, base: dict | None, p: dict) -> dict:
 
 def _siguiente_generico(t: Tramite) -> dict:
     if t.estado in FINALES:
-        return {"titulo": "Seguimiento de la ejecución", "detalle": "El procedimiento concluyó. Falta el reporte de "
-                "ejecución de la EPS.", "responsable": None, "boton": "Ver alertas de plazo", "accion": "alertas",
+        return {"titulo": "Seguimiento de la decisión", "detalle": "El procedimiento concluyó. Revisa la resolución y, "
+                "si corresponde, el seguimiento de ejecución.", "responsable": None, "boton": "Ver alertas de plazo", "accion": "alertas",
                 "urgente": False}
     if t.estado in {"requiere_respuesta", "requiere_subsanacion"}:
         return {"titulo": "Esperar la respuesta de la EPS", "detalle": "La EPS tiene un requerimiento pendiente.",
@@ -236,6 +236,8 @@ def _acciones_estado(db: Session, actor: Actor, t: Tramite) -> list[dict]:
         lista.append({"tipo": "requerir_informacion", "texto": "Requerir información a la EPS",
                       "requiere_documento": True})
         lista.append({'tipo':'requerir_subsanacion','texto':'Solicitar subsanación','requiere_documento':True})
+        if t.paso_actual >= (2 if t.procedimiento == 'RP' else 4):
+            lista.append({'tipo':'registrar_informe','texto':'Registrar informe de evaluación','requiere_documento':True})
     return lista
 
 
@@ -265,6 +267,7 @@ def _nueva(t: Tramite, actor: Actor, tipo: str, titulo: str, datos: dict, destin
            paso: int | None = None, verificada: bool = True, clave: str | None = None) -> Actuacion:
     return Actuacion(tramite_id=t.id, tipo=tipo, titulo=titulo, detalle=datos.get("detalle"),
                      fecha_acreditada=datos.get("fecha_acreditada"), documento_id=datos.get("documento_id"),
+                     fecha_por_validar=not bool(datos.get('fecha_acreditada')),
                      usuario_id=actor.usuario_id, actor="EPS" if actor.perfil == "eps" else "SUNASS",
                      estado_origen=t.estado, estado_destino=destino or t.estado, paso_origen=t.paso_actual,
                      paso_destino=paso or t.paso_actual, verificada=verificada, clave_idempotencia=clave)
@@ -294,8 +297,12 @@ def registrar(db: Session, actor: Actor, tramite_id: str, datos: dict, clave: st
         doc = repo.obtener_documento(db, actor, datos["documento_id"])
         if doc.tramite_id != t.id:
             raise DatosInvalidos("El documento pertenece a otro expediente.")
+        if tipo in {'requerir_informacion', 'requerir_subsanacion', 'resolver'} and doc.visibilidad not in repo.VISIBLES['eps']:
+            raise DatosInvalidos('Coordinación o Jefatura debe revisar el documento y compartirlo con la EPS antes de registrar esta actuación.')
     if datos.get("fecha_acreditada") and datos["fecha_acreditada"] > hoy:
         raise DatosInvalidos("La fecha acreditada no puede ser futura.")
+    if t.fecha_inicio and datos.get('fecha_acreditada') and datos['fecha_acreditada'] < t.fecha_inicio:
+        raise DatosInvalidos('La actuación no puede ser anterior al ingreso del expediente.')
     presentacion = copy.deepcopy(t.presentacion) if t.presentacion else None
     fecha = datos.get("fecha_acreditada") or hoy
 
@@ -325,12 +332,15 @@ def registrar(db: Session, actor: Actor, tramite_id: str, datos: dict, clave: st
         resultado = datos.get("resultado")
         if resultado not in {"autorizado", "no_autorizado"}:
             raise DatosInvalidos("El resultado debe ser autorizado o no_autorizado.")
-        act = _nueva(t, actor, tipo, datos.get("titulo") or f"Resolución: {TEXTO_ESTADO[resultado].lower()}", datos,
+        parcial = resultado == 'autorizado' and datos.get('alcance_autorizacion') == 'parcial'
+        act = _nueva(t, actor, tipo, datos.get("titulo") or ('Resolución: autorización parcial' if parcial else f"Resolución: {TEXTO_ESTADO[resultado].lower()}"), datos,
                      destino=resultado, clave=clave)
         t.estado, t.fecha_fin, t.responsable = resultado, fecha, None
         if presentacion:
             presentacion["siguiente"] = None
-        _ficha_eps_cierre(t, resultado, fecha)
+        _ficha_eps_cierre(t, resultado, fecha, doc.referencia or doc.titulo, parcial)
+    elif tipo == 'registrar_informe':
+        act = _nueva(t, actor, tipo, datos.get('titulo') or 'Informe de evaluación registrado', datos, clave=clave)
     elif tipo in {"requerir_informacion","requerir_subsanacion"}:
         if datos.get('plazo_dias') is None:
             raise DatosInvalidos('Indica el plazo expresamente señalado en el oficio.')
@@ -341,13 +351,18 @@ def registrar(db: Session, actor: Actor, tramite_id: str, datos: dict, clave: st
         if tipo=='requerir_subsanacion':
             t.estado='requiere_subsanacion'
             act.estado_destino=t.estado
-        _ficha_eps_requerimiento(t, datos, fecha, dias, hoy)
+        _ficha_eps_requerimiento(t, datos, fecha, dias, hoy, doc.referencia or doc.titulo)
         if tipo=='requerir_subsanacion':
             t.ficha_eps={**t.ficha_eps,'estado':t.estado,'siguiente_accion':{**t.ficha_eps['siguiente_accion'],'etiqueta':'Subsanación'}}
         if presentacion:
             presentacion["siguiente"] = None
     elif tipo == "verificar_respuesta":
         pendiente = _presentacion_pendiente(db, t)
+        informado = (t.ficha_eps or {}).get('respuesta_informada') or {}
+        if (datos.get('documento_id') or pendiente.documento_id) == informado.get('requerimiento_documento_id'):
+            raise DatosInvalidos('Selecciona el documento de respuesta de la EPS, no el oficio del requerimiento.')
+        if pendiente.fecha_acreditada and fecha < pendiente.fecha_acreditada:
+            raise DatosInvalidos('La verificación no puede ser anterior a la presentación informada por la EPS.')
         if not pendiente.documento_id:
             pendiente.documento_id = datos['documento_id']
         pendiente.verificada = True
@@ -381,7 +396,7 @@ def _aplicar_vinculo(p: dict) -> dict:
     return p
 
 
-def _ficha_eps_requerimiento(t: Tramite, datos: dict, fecha: date, dias: int, hoy: date) -> None:
+def _ficha_eps_requerimiento(t: Tramite, datos: dict, fecha: date, dias: int, hoy: date, referencia: str) -> None:
     ficha = copy.deepcopy(t.ficha_eps) if t.ficha_eps else None
     if ficha is None:
         ficha = {"id": t.id, "procedimiento": t.procedimiento, "titulo": t.titulo,
@@ -395,9 +410,10 @@ def _ficha_eps_requerimiento(t: Tramite, datos: dict, fecha: date, dias: int, ho
         "aviso": None, "respuesta_informada": None,
         "siguiente_accion": {
             "tipo": "informar_presentacion", "etiqueta": "Respuesta",
-            "titulo": f"Responde el {datos.get('documento_id')}", "texto": "Preparar respuesta",
+            "titulo": f"Responde el {referencia}", "texto": "Preparar respuesta",
             "instrucciones": None if requisitos else datos.get("detalle"),
             "canal": "Mesa de Partes Virtual de Sunass", "fecha_limite": None,
+            "fecha_requerimiento": fecha.isoformat(),
             "fecha_texto": 'Por validar', "fecha_detalle": f"{dias} días hábiles; falta acreditar la notificación y el calendario",
             "dias_restantes": None, "fuente_documento_id": datos.get("documento_id"),
             "requisitos": requisitos,
@@ -407,20 +423,23 @@ def _ficha_eps_requerimiento(t: Tramite, datos: dict, fecha: date, dias: int, ho
                    if s["estado"] != "pendiente"]
     ficha["seguimiento"] = seguimiento + [
         {"titulo": "Sunass te pidió información", "fecha_texto": plazos.fecha_corta(fecha), "estado": "hecho"},
-        {"titulo": f"Tu respuesta al {datos.get('documento_id')}", "fecha_texto": 'Vencimiento pendiente de validación',
+        {"titulo": f"Tu respuesta al {referencia}", "fecha_texto": 'Vencimiento pendiente de validación',
          "estado": "actual"},
         {"titulo": "Decisión del Consejo Directivo", "fecha_texto": "Te avisaremos cuando se publique",
          "estado": "pendiente"}]
     t.ficha_eps = ficha
 
 
-def _ficha_eps_cierre(t: Tramite, resultado: str, fecha: date) -> None:
-    if not t.ficha_eps:
-        return
-    ficha = copy.deepcopy(t.ficha_eps)
-    ficha.update({"estado": resultado, "estado_texto": TEXTO_ESTADO[resultado], "siguiente_accion": None,
-                  "resumen": f"El Consejo Directivo resolvió tu solicitud el {plazos.fecha_corta(fecha)}."})
-    ficha["seguimiento"] = [{**s, "estado": "hecho"} for s in ficha.get("seguimiento", [])]
+def _ficha_eps_cierre(t: Tramite, resultado: str, fecha: date, referencia: str, parcial: bool = False) -> None:
+    ficha = copy.deepcopy(t.ficha_eps) if t.ficha_eps else {'id':t.id, 'procedimiento':t.procedimiento,
+        'titulo':t.titulo, 'simulado':t.simulado, 'documentos':[], 'seguimiento':[], 'respuesta_informada':None}
+    etiqueta = 'Autorizado parcialmente' if parcial else TEXTO_ESTADO[resultado]
+    ficha.update({"estado": resultado, "estado_texto": etiqueta, "siguiente_accion": None,
+                  "resumen": f"El Consejo Directivo resolvió tu solicitud mediante {referencia} el {plazos.fecha_corta(fecha)}.",
+                  "aviso": {"tipo": "concluido", "titulo": etiqueta, "etiqueta": "Trámite concluido",
+                            "texto": f"Revisa {referencia} en tus documentos. El registro no acredita por sí solo la notificación.", "enlace": None}})
+    ficha['seguimiento'] = [s for s in ficha.get('seguimiento', []) if s['estado']=='hecho'] + [
+        {'titulo':f'Resolución registrada: {referencia}', 'fecha_texto':plazos.fecha_corta(fecha), 'estado':'hecho'}]
     t.ficha_eps = ficha
 
 
@@ -491,7 +510,8 @@ def incorporar_en_tramite(db: Session, actor: Actor, recibido: DocumentoRecibido
             raise Conflicto("El PDF debe terminar de procesarse antes de incorporarlo.")
         paginas = trabajo["paginas"]
     doc=Documento(id=recibido.id,tramite_id=t.id,titulo=recibido.datos['titulo'],referencia=recibido.datos['referencia'],
-                  visibilidad='interna' if tiene_pdf else 'partes', estado_validacion='por_validar',simulado=False,
+                  visibilidad='interna' if tiene_pdf else 'partes', estado_validacion='por_validar',
+                  simulado=bool(recibido.datos.get('simulado')),
                   paginas=len(paginas), archivo="bucket:original" if tiene_pdf else None)
     db.add(doc)
     db.flush()

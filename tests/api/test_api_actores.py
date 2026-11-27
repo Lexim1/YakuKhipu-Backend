@@ -129,7 +129,7 @@ def test_recorrido_sunass_eps_resolucion_publicacion_ciudadania(entorno):
     assert e.client.get('/api/eps/tramites').json()['total']==1
     ficha=e.client.get('/api/eps/tramites/caso-a').json()
     assert ficha['siguiente_accion']['fecha_limite'] is None
-    r=e.client.post('/api/eps/tramites/caso-a/respuestas',json={'version':version,'documento':'caso-a-partes','fecha_presentacion':'2026-11-21','canal':'Mesa de Partes'},headers={'Idempotency-Key':'respuesta-1'})
+    r=e.client.post('/api/eps/tramites/caso-a/respuestas',json={'version':version,'documento':'caso-a-publico','fecha_presentacion':'2026-11-21','canal':'Mesa de Partes'},headers={'Idempotency-Key':'respuesta-1'})
     assert r.status_code==200,r.text
     assert r.json()['respuesta_informada']['verificada'] is False
     entrar(e)
