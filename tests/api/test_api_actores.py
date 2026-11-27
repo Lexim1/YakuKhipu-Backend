@@ -18,6 +18,18 @@ from soporte_api import Memoria
 @pytest.fixture
 def entorno(monkeypatch):
     db=Memoria()
+    from app.modules import carga_analistas
+    def cargas_memoria(db,actor,tramite_id=None):
+        from app.auth.permisos import exigir
+        exigir(actor,'asignacion.gestionar')
+        filas=[]
+        for u in db.tablas['usuario'].values():
+            if not u.activo or u.rol_id!='analista_srt':continue
+            acts=[a for a in db.tablas['asignacion_tramite'].values() if a.usuario_id==u.id]
+            abiertos={a.tramite_id for a in acts if a.fin is None and db.tablas['tramite'][a.tramite_id].estado not in ('concluido','autorizado','no_autorizado')}
+            filas.append({'id':u.id,'nombre':u.nombre_visible,'carga_activa':len(abiertos),'ultima_asignacion':max((a.inicio for a in acts),default=None),'asignacion_actual':any(a.fin is None and a.tramite_id==tramite_id for a in acts)})
+        return carga_analistas.ordenar_cargas(filas)
+    monkeypatch.setattr(carga_analistas,'consultar',cargas_memoria)
     from app.modules import calidad
     monkeypatch.setattr(calidad, 'listar', lambda db, tramites: [])
     monkeypatch.setattr(settings,'secret_key','clave-aislada-de-pruebas-http-de-32-caracteres')

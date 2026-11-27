@@ -68,7 +68,7 @@ def buscar_cache(estado: Estado, config: RunnableConfig) -> dict:
     historial = estado.get("historial") or []
     ultimo = json.dumps(historial,ensure_ascii=False,sort_keys=True)
     snapshot=json.dumps([estado.get('ficha'),estado.get('plazos')],sort_keys=True,default=str,ensure_ascii=False)
-    version = "agente-20261126:" + settings.llm_model + ":" + f.version(estado["tramite_id"])
+    version = "agente-20261127:" + settings.llm_model + ":" + f.version(estado["tramite_id"])
     k = cache.clave(estado["actor"], estado["tramite_id"], version+snapshot, estado["pregunta"], ultimo)
     guardada = f.cache_obtener(k) if settings.cache_activa else None
     if guardada:
@@ -87,8 +87,9 @@ def recuperar(estado: Estado, config: RunnableConfig) -> dict:
     if historial and len(retrieval.tokens(consulta)) < 6:  # pregunta de seguimiento: suma el contexto previo
         consulta = historial[-1]["pregunta"] + " " + consulta
     candidatos = _fuentes(config).listar_fuentes(actor, estado["tramite_id"])
+    minimo = retrieval.umbral(len(candidatos),settings.min_puntaje)
     hallados = [{"puntaje": p, **fr} for p, fr in retrieval.buscar(consulta, candidatos, settings.max_fragmentos)
-                if p >= settings.min_puntaje]
+                if p >= minimo]
     for h in hallados:
         h["extracto"] = retrieval.extracto(h["texto"], consulta)
     return {"fragmentos": hallados}
@@ -171,7 +172,9 @@ def _problemas(estado: Estado, salida: dict) -> list[str]:
     if 'FICHA' in citadas: evidencia.append(json.dumps(estado['ficha'],ensure_ascii=False,default=str))
     if 'PLAZOS' in citadas: evidencia.append(json.dumps(estado.get('plazos') or [],default=str))
     for i,fragmento in enumerate(estado.get('fragmentos') or [],1):
-        if f'F{i}' in citadas: evidencia.append(fragmento['texto'])
+        if f'F{i}' in citadas:
+            evidencia.append(f"{fragmento.get('titulo','')} página {fragmento.get('pagina_pdf') or ''}\n"+
+                             fragmento.get('extracto',fragmento['texto']))
     contexto=' '.join(evidencia)
     sin_sustento = _numeros(salida["respuesta"]) - _numeros(contexto)
     if sin_sustento:

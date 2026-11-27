@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 from collections import defaultdict, deque
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request, Response, Query
 from sqlalchemy.orm import Session
 
 from ..core.config import settings
@@ -18,6 +18,13 @@ from ..modules import asistente
 
 router = APIRouter(tags=["Asistente"])
 _consultas: dict[str, deque] = defaultdict(deque)
+
+
+@router.get('/api/agente/buscar', summary='Localizar expedientes y fuentes visibles, sin inferencia')
+def buscar(q: str = Query(min_length=2,max_length=1000), limite: int = Query(default=5,ge=1,le=20),
+           actor: Actor = Depends(actor_institucional), db: Session = Depends(get_db)):
+    from ..modules.busqueda_agente import buscar as consultar
+    return consultar(db,actor,q,limite)
 
 
 def _limitar(ip: str) -> None:

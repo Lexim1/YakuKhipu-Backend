@@ -77,7 +77,7 @@ def test_asignacion_y_reasignacion_conservan_historial(entorno):
         rol_id='analista_srt', activo=False, credenciales_version=1))
     candidatos = e.client.get('/api/tramites/caso-a/asignaciones/candidatos')
     assert candidatos.status_code == 200, candidatos.text
-    assert candidatos.json() == [
+    assert [{k:r[k] for k in ('id','nombre')} for r in candidatos.json()] == [
         {'id': 'analista-a', 'nombre': 'analista-a'},
         {'id': 'analista-b', 'nombre': 'analista-b'},
     ]

@@ -114,10 +114,8 @@ def catalogos_recepcion(actor: Actor = Depends(actor_sunass), db: Session = Depe
     empresas = [{"id": e.id, "nombre": e.nombre} for e in eps]
     analistas = []
     if "asignacion.gestionar" in actor.permisos:
-        usuarios = db.scalars(select(Usuario).where(
-            Usuario.rol_id == "analista_srt", Usuario.activo.is_(True),
-        ).order_by(Usuario.nombre_visible, Usuario.id))
-        analistas = [{"id": u.id, "nombre": u.nombre_visible} for u in usuarios]
+        from ..modules.carga_analistas import consultar
+        analistas = consultar(db,actor)
     return {"empresas": empresas, "analistas": analistas}
 
 
