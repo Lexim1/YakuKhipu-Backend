@@ -7,7 +7,7 @@ python -m pip install -r scripts/requirements-kits.txt
 python -m scripts.generar_kits_demo `
   --datasets 'D:\sunass\yakukhipu\mvp\D3_gestion_financiera\datos_sprint' `
   --actualizacion 'D:\sunass\yakukhipu\mvp\D3_gestion_financiera\datos_sprint\datos_para_demostracion\d3_actualizacion_al_2026-11-20' `
-  --salida 'RUTA-DE-SALIDA\kits' --transcribir-hitos
+  --salida 'RUTA-DE-SALIDA\kits' --transcribir-hitos --portal-origin 'https://localhost:5443'
 ```
 
 Se genera una carpeta por cada expediente del dataset actualizado: 501 fichas, agrupadas en CPI, UFI, RP, RPI, IPM y VIN. Los flujos operativos del portal son CPI, UFI y RP; los otros tres grupos se documentan para consulta financiera y no se presentan como flujos operativos implementados.

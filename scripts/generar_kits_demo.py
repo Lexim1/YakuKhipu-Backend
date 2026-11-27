@@ -12,7 +12,6 @@ from scripts.importar_d3 import merge_rows, UPDATES, KEYS
 from scripts.generar_sql import identity, PROCS
 from scripts.documentos_sprint import agrupar_documentos
 
-PORTAL='https://portal-production-755de7de.up.railway.app'
 PASOS={
  'CPI':['Solicitud','Deriva a SRT','Asigna equipo','Verifica requisitos TUPA','Evalúa información','Informe y proyecto de resolución','Firma SRT y memo a GG','Resolución'],
  'UFI':['Solicitud','Deriva a SRT','Asigna equipo','Verifica requisitos TUPA','Evalúa información','Informe único','Memo a GG','Eleva al CD','Resolución'],
@@ -56,7 +55,7 @@ def rol(tipo):
  return 'Jefatura o Coordinación registra el acto externo acreditado'
 
 def main():
- ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--datasets',type=Path,required=True);ap.add_argument('--actualizacion',type=Path);ap.add_argument('--salida',type=Path,required=True);ap.add_argument('--transcribir-hitos',action='store_true');a=ap.parse_args()
+ ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--datasets',type=Path,required=True);ap.add_argument('--actualizacion',type=Path);ap.add_argument('--salida',type=Path,required=True);ap.add_argument('--transcribir-hitos',action='store_true');ap.add_argument('--portal-origin',default='');a=ap.parse_args()
  a.salida.mkdir(parents=True,exist_ok=True)
  sources={};tables={}
  for stem in ['ds01_catalogo_eps','ds02_procedimientos','ds02_hitos_procedimientos','ds10_bitacora_actuaciones','ds11_indice_documentos']:
@@ -118,7 +117,7 @@ def main():
   escribir_csv(folder/'actuaciones_fuente.csv',ad,list(tables['ds10_bitacora_actuaciones'][0]))
   guide=[f'# {cid} · {manifest["eps"]}','',f'Procedimiento: {row["tipo_procedimiento"]}. Corte de datos: {manifest["corte"]}. Material ficticio de práctica.', '',
    f'Estado en la fuente: **{row["estado"]}**. Resultado: {row["resultado"] or "sin pronunciamiento registrado"}. Este dato no cambia el estado del expediente nuevo que vas a registrar.', '',
-   f'Portal: {PORTAL}. Inicia sesión con Jefatura, Coordinación, analista asignado o la cuenta EPS que corresponda a **{row["cod_eps"]}**. Usa sesiones separadas. No se incluyen contraseñas en este kit.', '']
+   f'Portal: {a.portal_origin or "la URL configurada de tu entorno local o Railway"}. Inicia sesión con Jefatura, Coordinación, analista asignado o la cuenta EPS que corresponda a **{row["cod_eps"]}**. Usa sesiones separadas. No se incluyen contraseñas en este kit.', '']
   if initial_pdf and operativo:
    guide += [f'## Inicio desde cero\n\n1. Jefatura abre Recepción y sube **{initial_pdf}**. La solicitud es un extracto del PDF original, sin texto redactado nuevamente.',
     f'2. Selecciona {manifest["eps"]}, referencia original con un sufijo DEMO nuevo, fecha **{initial[0]["fecha_actuacion"] or row["fecha_inicio"]}** y material ficticio de práctica. Espera PDF listo.',
