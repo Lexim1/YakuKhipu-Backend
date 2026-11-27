@@ -2,12 +2,16 @@
 from __future__ import annotations
 
 
+from asyncio import Semaphore
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from .api import asistente, documentos, eps, publico, sesion, tramites, asignaciones
+from .api import asistente, documentos, eps, publico, sesion, tramites, asignaciones, finanzas, seguimiento
 from .core import errores
 from .core.config import settings
 from .core.db import engine
@@ -20,8 +24,10 @@ app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin], all
                    allow_methods=["GET", "POST", "PUT", "DELETE"], allow_headers=["Content-Type", "Idempotency-Key"],
                    expose_headers=["X-Logout-URL"])
 errores.registrar(app)
-for r in (sesion.router, sesion.auth_router, tramites.router, asignaciones.router, eps.router, documentos.router, publico.router, asistente.router):
+for r in (sesion.router, sesion.auth_router, tramites.router, asignaciones.router, eps.router, documentos.router, publico.router, asistente.router, finanzas.router, seguimiento.router):
     app.include_router(r)
+
+_cargas_pdf = Semaphore(2)
 
 
 @app.middleware("http")
@@ -41,7 +47,18 @@ async def proteger_escrituras(request: Request, call_next):
         if int(longitud) > LIMITE + 65536:
             return JSONResponse({"detail":"El PDF supera el límite de 20 MiB.", "codigo":"pdf_muy_grande"},
                                 status_code=413)
+        if _cargas_pdf.locked():
+            return JSONResponse({"detail":"Hay dos PDF en carga. Intenta otra vez en unos segundos.",
+                                 "codigo":"cargas_ocupadas"}, status_code=429, headers={"Retry-After": "5"})
+        async with _cargas_pdf:
+            return await call_next(request)
     return await call_next(request)
+
+
+@app.middleware("http")
+async def cabeceras_seguras(request: Request, call_next):
+    from .core.cabeceras import aplicar
+    return aplicar(await call_next(request), request.url.path)
 
 
 @app.get("/health", tags=["Sistema"])
@@ -52,8 +69,7 @@ def health() -> dict:
         base = "ok"
     except Exception:  # noqa: BLE001 - el chequeo informa, no falla
         base = "sin_conexion"
-    # «ingreso» y «carga_pdf» le dicen al frontend qué mostrar: botón institucional (OIDC) o formulario
-    # de contraseña, y si puede ofrecer la carga de PDF. No revelan secretos ni direcciones.
+    # «ingreso» y «carga_pdf» informan el acceso OIDC y la carga de PDF sin revelar secretos.
     return {"estado": "ok" if base=='ok' else 'degradado', "base_de_datos": base, "asistente": "habilitado" if settings.llm_enabled else "deshabilitado",
             "sesion": "persistente", "ingreso": "oidc",
             "carga_pdf": "habilitada" if settings.pdf_bucket else "deshabilitada"}
@@ -77,3 +93,28 @@ def ready() -> dict:
     except Exception:
         raise ServicioNoDisponible('La conexión o el esquema de PostgreSQL aún no están disponibles.')
     return {'estado':'ok'}
+
+
+# Railway sirve React y la API desde el mismo origen. Fuera de la imagen web,
+# por ejemplo en pruebas unitarias, la API puede arrancar sin los archivos.
+frontend_dist = Path(__file__).resolve().parent.parent / "frontend_dist"
+if frontend_dist.is_dir():
+    app.mount("/assets", StaticFiles(directory=frontend_dist / "assets"), name="frontend-assets")
+
+    @app.get('/', include_in_schema=False)
+    @app.get('/sunass', include_in_schema=False)
+    @app.get('/sunass/{ruta:path}', include_in_schema=False)
+    @app.get('/eps', include_in_schema=False)
+    @app.get('/eps/{ruta:path}', include_in_schema=False)
+    @app.get('/ciudadania', include_in_schema=False)
+    @app.get('/ciudadania/{ruta:path}', include_in_schema=False)
+    @app.get('/favicon.svg', include_in_schema=False)
+    @app.get('/logo.png', include_in_schema=False)
+    def frontend(request: Request):
+        ruta = request.url.path.lstrip('/')
+        archivo = (frontend_dist / ruta).resolve()
+        if archivo.is_relative_to(frontend_dist) and archivo.is_file():
+            return FileResponse(archivo)
+        if "." in Path(ruta).name:
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        return FileResponse(frontend_dist / "index.html")

@@ -83,4 +83,5 @@ def registrar(app: FastAPI) -> None:
         headers={}
         if request.headers.get('origin')==settings.frontend_origin:
             headers={'Access-Control-Allow-Origin':settings.frontend_origin,'Access-Control-Allow-Credentials':'true','Vary':'Origin'}
-        return JSONResponse(status_code=500,content={'detail':'Ocurrió un error interno. Intenta nuevamente.','codigo':'error_interno'},headers=headers)
+        from .cabeceras import aplicar
+        return aplicar(JSONResponse(status_code=500,content={'detail':'Ocurrió un error interno. Intenta nuevamente.','codigo':'error_interno'},headers=headers),request.url.path)

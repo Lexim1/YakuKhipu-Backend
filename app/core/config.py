@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     llm_enabled: bool = False
     llm_timeout: float = 60.0
     llm_max_tokens: int = 2000
+    llm_reasoning_effort: str = ""  # vacío conserva la configuración del modelo
 
     max_fragmentos: int = 5        # fragmentos que recibe el modelo por pregunta
     min_puntaje: float = 1.5       # por debajo no hay evidencia suficiente → sin_fuentes

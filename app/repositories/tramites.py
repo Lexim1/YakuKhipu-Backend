@@ -12,7 +12,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from ..core.errores import NoEncontrado
-from ..models import Documento, Fragmento, Publicacion, Tramite
+from ..models import Documento, Fragmento, Publicacion, Tramite, Eps
 from ..schemas.comun import Actor
 from ..models.seguridad import Asignacion
 from ..auth.permisos import exigir
@@ -52,13 +52,26 @@ def puede_ver(db: Session, actor: Actor, t: Tramite) -> bool:
 
 
 def listar_tramites(db: Session, actor: Actor) -> list[Tramite]:
-    consulta = select(Tramite).where(text('tramite.id IN (SELECT canonical_id FROM registro_fuente WHERE presente)')).order_by(Tramite.id)
+    consulta = select(Tramite).where(Tramite.procedimiento.in_(PROCEDIMIENTOS),text('tramite.id IN (SELECT canonical_id FROM registro_fuente WHERE presente)')).order_by(Tramite.id)
+    if actor.perfil != 'publico' and 'expediente.consultar' not in actor.permisos:
+        return []
     if actor.perfil == "eps":
         consulta = consulta.where(Tramite.eps_id == actor.eps_id)
+    elif actor.perfil == 'sunass':
+        if actor.rol_id == 'analista_srt':
+            asignados=list(db.scalars(select(Asignacion.tramite_id).where(Asignacion.usuario_id==actor.usuario_id,Asignacion.fin.is_(None))))
+            consulta=consulta.where(Tramite.id.in_(asignados))
+        elif actor.rol_id not in ('coordinacion_dre','jefatura_dre'):
+            return []
     elif actor.perfil == "publico":
         consulta = consulta.join(Publicacion, Publicacion.tramite_id == Tramite.id).where(
             Publicacion.publicada.is_(True), Tramite.publicable.is_(True))
-    return [t for t in db.scalars(consulta) if puede_ver(db, actor, t)]
+    rows=[t for t in db.scalars(consulta) if puede_ver(db, actor, t)] if actor.perfil=='publico' else list(db.scalars(consulta))
+    if rows and hasattr(db,'info'):
+        db.info['referencias']=dict(db.execute(text("""SELECT r.canonical_id,coalesce(p.id_expediente,r.datos->>'referencia',r.datos->>'expediente')
+            FROM registro_fuente r LEFT JOIN procedimiento_fuente p ON p.tramite_id=r.canonical_id WHERE r.canonical_id=ANY(:ids)"""),{'ids':[t.id for t in rows]}).all())
+        db.info['eps_cache']={e.id:e for e in db.scalars(select(Eps).where(Eps.id.in_({t.eps_id for t in rows})))}
+    return rows
 
 
 def obtener_documento(db: Session, actor: Actor, documento_id: str) -> Documento:

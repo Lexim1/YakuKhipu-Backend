@@ -13,12 +13,12 @@ from ..core.config import settings
 from ..core.db import get_db
 from ..auth.sesion import actor_institucional, actor_sunass
 from ..repositories import tramites as repo
-from ..models import Documento
+from ..models import Documento, Eps, Usuario
 from ..schemas.comun import Actor
 from ..schemas.comun import ListaPaginada
 from ..schemas.salidas import ResumenTramite,Expediente,Accion,PublicarDecision,NuevaRecepcion,DecisionPublica
 from ..schemas.salidas import Evento,Recepcion,Flujo,Alerta
-from ..schemas.tramite import ConfirmarVinculo, Incorporacion, NuevaActuacion
+from ..schemas.tramite import ConfirmarVinculo, Incorporacion, NuevaActuacion, NuevoExpedienteRecepcion
 from ..modules import tramites as servicio
 from ..modules.datos import contexto
 from ..auth.permisos import exigir
@@ -105,6 +105,27 @@ def recepcion(actor: Actor = Depends(actor_sunass), db: Session = Depends(get_db
     exigir(actor, "recepcion.gestionar")
     items = servicio.listar_recepcion(db)
     return {"items": items, "total": len(items)}
+
+
+@router.get("/recepcion/catalogos", summary="EPS y analistas activos para recibir y derivar documentos")
+def catalogos_recepcion(actor: Actor = Depends(actor_sunass), db: Session = Depends(get_db)) -> dict:
+    exigir(actor, "recepcion.gestionar")
+    eps = db.scalars(select(Eps).order_by(Eps.nombre, Eps.id))
+    empresas = [{"id": e.id, "nombre": e.nombre} for e in eps]
+    analistas = []
+    if "asignacion.gestionar" in actor.permisos:
+        usuarios = db.scalars(select(Usuario).where(
+            Usuario.rol_id == "analista_srt", Usuario.activo.is_(True),
+        ).order_by(Usuario.nombre_visible, Usuario.id))
+        analistas = [{"id": u.id, "nombre": u.nombre_visible} for u in usuarios]
+    return {"empresas": empresas, "analistas": analistas}
+
+
+@router.post("/recepcion/expedientes", status_code=201, summary="Registrar ingreso manual y derivar a un analista")
+def crear_expediente(datos: NuevoExpedienteRecepcion, actor: Actor = Depends(actor_sunass),
+                    db: Session = Depends(get_db)) -> dict:
+    from ..modules.operaciones import registrar_expediente
+    return registrar_expediente(db, actor, datos.model_dump(), settings.hoy())
 
 
 @router.get("/recepcion/destinos", summary="Expedientes abiertos habilitados para incorporar documentos")

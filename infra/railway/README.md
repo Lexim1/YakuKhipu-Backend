@@ -2,8 +2,12 @@
 
 Son seis recursos: PostgreSQL de YakuKhipu, PostgreSQL exclusivo de Keycloak,
 Keycloak, un bucket privado y dos servicios del repositorio (portal y worker).
-Este repositorio construye FastAPI y el worker. El frontend se publica aparte
-y debe enviar `/api` mediante un proxy del mismo origen para conservar el BFF.
+Este repositorio construye FastAPI, el frontend React y el worker. El Dockerfile
+obtiene el frontend desde el commit `FRONTEND_COMMIT` del repositorio
+Lexim1/YakuKhipu y FastAPI lo sirve junto con `/api` bajo el dominio del portal.
+No requiere crear otro servicio de frontend. Después de aprobar un cambio de
+React, actualizar el commit fijado mediante otro PR del backend y comprobar
+el despliegue conjunto; aprobar un PR del frontend por sí solo no cambia la imagen.
 El worker no tiene dominio público. No se guardan credenciales en Git.
 
 ## 1. PostgreSQL
@@ -109,6 +113,27 @@ tu cuenta de OpenRouter; `openrouter/free` selecciona modelos gratuitos de forma
 variable y tiene límites de uso. Para una validación reproducible conviene fijar
 un modelo concreto tras probarlo con la cuenta. Nunca pegues la clave en Git.
 
+En una primera validación del 26/11/2026, anterior a la integración de OmniRoute, se configuró en **portal y worker**
+`LLM_MODEL=nvidia/nemotron-3.5-super-vl:free` y `LLM_REASONING_EFFORT=none`.
+Ese modelo permitió una respuesta JSON verificable. El router anterior elegía
+modelos que consumían los tokens en razonamiento sin devolver texto. No copiar
+`none` a un modelo con razonamiento obligatorio: volver a comprobar soporte,
+formato y disponibilidad al cambiarlo. La clave existente se conserva como secreto.
+
+El PR #15 de Lexi, ya fusionado en master, incorpora OmniRoute
+al worker. La configuración observada después apunta portal a
+`http://worker.railway.internal:20128/v1`, worker a `http://127.0.0.1:20128/v1`
+y usa `LLM_MODEL=yakukhipu` en ambos. Ese nombre es un combo de OmniRoute;
+el proveedor y modelo efectivos se configuran allí. No sustituir estas variables
+por OpenRouter directo al fusionar este PR ni asumir que el combo usa un modelo
+concreto sin revisar su configuración. Conservar `Dockerfile.worker` y
+`app.worker_runtime` del PR #15 al desplegar el worker. Después de su fusión,
+comprobar también la rama de origen de cada servicio en Railway.
+
+El validador admite HTTPS para proveedores externos y HTTP únicamente para
+ese gateway privado o loopback en puerto 20128, según la validación del PR #15. Los endpoints públicos
+del portal, Keycloak y almacenamiento siguen requiriendo HTTPS.
+
 El worker requiere `DATABASE_URL`, las seis variables `PDF_*` y las cuatro
 `LLM_*` (`LLM_ENABLED`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`).
 Sin `LLM_ENABLED=true` en el worker, la propuesta automática queda pendiente.
@@ -125,8 +150,22 @@ railway ssh --service portal -- python -m app.validar_nube
 ```
 
 Comprueba esquema PostgreSQL, discovery/JWKS y cliente Keycloak,
-escritura/lectura/borrado de un objeto sintético en el bucket y una llamada
-real al modelo. Sale con código 1 ante fallos y no imprime secretos.
+escritura/lectura/borrado de un objeto sintético en el bucket, frontend/API
+públicos, rechazo de peticiones institucionales anónimas y de escrituras con
+otro Origin, y una respuesta JSON de control real del modelo. Sale con código 1
+ante fallos y no imprime secretos. Desde otra PC, la URL privada de PostgreSQL
+no es accesible directamente: ejecutar la comprobación SQL dentro de Railway
+o mediante un túnel autorizado; no publicar PostgreSQL para superar esta prueba.
+
+La página inicial y la consulta ciudadana están disponibles sin instalar
+DataGrip, Docker ni ejecutar una PC de desarrollo. Los expedientes requieren
+cuenta institucional y permisos del portal. El ciudadano solo ve decisiones
+publicadas expresamente; un listado público vacío no autoriza divulgar datos
+internos. El analista solo ve sus asignaciones activas.
+
+En el primer ingreso, una cuenta con `UPDATE_PASSWORD` cambia su contraseña
+inicial y completa los campos obligatorios de Keycloak. Ese paso no es un error
+de conexión y no debe deshabilitarse ni sustituirse por datos personales inventados.
 
 Después prueba en navegador login y logout, `GET /api/sesion`, accesos por
 rol, subida de PDF autorizado, procesamiento `listo`, incorporación al

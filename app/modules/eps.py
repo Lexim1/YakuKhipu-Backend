@@ -99,9 +99,12 @@ def informar_respuesta(db: Session, actor: Actor, tramite_id: str, datos: dict, 
     if not f or not f.get("siguiente_accion"):
         raise Conflicto("Esta respuesta ya fue informada. Revisa el seguimiento del trámite.")
     presentado = datos["fecha_presentacion"]
-    doc = repo.obtener_documento(db, actor, datos["documento"])
-    if doc.tramite_id != t.id:
+    doc = repo.obtener_documento(db, actor, datos['documento']) if datos.get('documento') else None
+    if doc and doc.tramite_id != t.id:
         raise DatosInvalidos("El documento pertenece a otro expediente.")
+    referencia = datos.get('referencia_presentada') or (doc.referencia or doc.titulo if doc else None)
+    if not referencia:
+        raise DatosInvalidos('Indica el oficio que presentaste por Mesa de Partes.')
     if presentado > hoy:
         raise DatosInvalidos("La fecha de presentación no puede ser futura.")
     accion = f["siguiente_accion"]
@@ -113,25 +116,25 @@ def informar_respuesta(db: Session, actor: Actor, tramite_id: str, datos: dict, 
         "estado": "en_evaluacion", "estado_texto": "Sunass evalúa tu respuesta",
         "resumen": "Sunass está evaluando tu respuesta. Por ahora no tienes ninguna tarea pendiente.",
         "siguiente_accion": None, "aviso": None,
-        "respuesta_informada": {"documento": datos["documento"], "fecha_presentacion": presentado.isoformat(),
+        "respuesta_informada": {"documento": referencia, "fecha_presentacion": presentado.isoformat(),
                                 "fecha_texto": fecha_texto, "canal": datos["canal"], "cargo": datos.get("cargo"),
                                 "verificada": False},
         "seguimiento": anteriores + [
-            {"titulo": f"{verbo} con el {datos['documento']}", "fecha_texto": fecha_texto, "estado": "hecho"},
+            {"titulo": f"{verbo} con el {referencia}", "fecha_texto": fecha_texto, "estado": "hecho"},
             {"titulo": "Sunass evalúa tu respuesta", "fecha_texto": "Hoy", "estado": "actual"},
             {"titulo": "Decisión del Consejo Directivo", "fecha_texto": "Te avisaremos cuando se publique",
              "estado": "pendiente"}],
     })
-    act = _nueva(t, actor, "informar_presentacion", f"La EPS informa su respuesta: {datos['documento']}",
+    act = _nueva(t, actor, "informar_presentacion", f"La EPS informa su respuesta: {referencia}",
                  {"detalle": f"Presentada por {datos['canal']} · cargo {datos.get('cargo') or 'sin adjuntar'}",
-                  "fecha_acreditada": presentado, "documento_id": datos["documento"]},
+                  "fecha_acreditada": presentado, "documento_id": doc.id if doc else None},
                  destino="en_evaluacion", verificada=False, clave=clave)
     t.estado, t.ficha_eps = "en_evaluacion", f
     act.peticion_hash=huella_peticion(datos)
     if t.presentacion:
         p = copy.deepcopy(t.presentacion)
         p["siguiente"] = {"titulo": "Verificar la respuesta de la EPS",
-                          "detalle": f"La EPS informó el {datos['documento']} ({fecha_texto}). Confirma que llegó por "
+                          "detalle": f"La EPS informó el {referencia} ({fecha_texto}). Confirma que llegó por "
                                      "Mesa de Partes antes de incorporarlo.",
                           "responsable": t.responsable, "boton": "Ver alertas de plazo", "accion": "alertas",
                           "urgente": True}

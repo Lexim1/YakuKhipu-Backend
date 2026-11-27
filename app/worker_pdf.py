@@ -30,7 +30,7 @@ def ejecutar(args, hasta):
     restante = hasta - monotonic()
     if restante <= 0:
         raise subprocess.TimeoutExpired(args, 0)
-    entorno = {k: os.environ[k] for k in ("PATH", "SystemRoot", "TMP", "TEMP") if k in os.environ}
+    entorno = {k: os.environ[k] for k in ("PATH", "SystemRoot", "TMP", "TEMP", "TESSDATA_PREFIX") if k in os.environ}
     entorno.update({"LANG": "C", "OMP_THREAD_LIMIT": "1"})
     return subprocess.run(args, capture_output=True, check=True, env=entorno,
                           timeout=min(60, restante)).stdout
@@ -134,10 +134,10 @@ def main():
     cliente()
     while True:
         try:
-            if ciclo():
-                continue
+            leido = ciclo()
             from .modules import propuestas
-            if asyncio.run(propuestas.ciclo()):
+            analizado = asyncio.run(propuestas.ciclo())
+            if leido or analizado:
                 continue
         except Exception as exc:
             LOG.error("El worker no pudo completar el ciclo: %s", type(exc).__name__)

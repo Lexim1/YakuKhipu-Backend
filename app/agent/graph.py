@@ -8,6 +8,7 @@ autorizar → buscar_cache → recuperar → (sin_fuentes | generar → comproba
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -67,7 +68,8 @@ def buscar_cache(estado: Estado, config: RunnableConfig) -> dict:
     historial = estado.get("historial") or []
     ultimo = json.dumps(historial,ensure_ascii=False,sort_keys=True)
     snapshot=json.dumps([estado.get('ficha'),estado.get('plazos')],sort_keys=True,default=str,ensure_ascii=False)
-    k = cache.clave(estado["actor"], estado["tramite_id"], f.version(estado["tramite_id"])+snapshot, estado["pregunta"], ultimo)
+    version = "agente-20261126:" + settings.llm_model + ":" + f.version(estado["tramite_id"])
+    k = cache.clave(estado["actor"], estado["tramite_id"], version+snapshot, estado["pregunta"], ultimo)
     guardada = f.cache_obtener(k) if settings.cache_activa else None
     if guardada:
         return {"cache_clave": k, "salida": {**guardada, "desde_cache": True}}
@@ -124,19 +126,20 @@ def _mensajes(estado: Estado, aviso: str | None = None) -> list[dict]:
 
 def _parsear(texto: str) -> dict | None:
     texto = texto.translate(retrieval.ESPACIOS)
-    m = re.search(r"\{.*\}", texto, re.S)
-    if not m:
-        return None
-    try:
-        d = json.loads(m.group(0), strict=False)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(d,dict) or not isinstance(d.get('respuesta'),str) or not d['respuesta'].strip() or len(d['respuesta'])>8000:
-        return None
-    for field in ('citas','advertencias'):
-        if not isinstance(d.get(field,[]),list) or any(not isinstance(x,str) for x in d.get(field,[])):
-            return None
-    return d
+    decoder = json.JSONDecoder(strict=False)
+    for inicio in re.finditer(r"\{", texto):
+        try:
+            d, _ = decoder.raw_decode(texto[inicio.start():])
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(d, dict) or not isinstance(d.get("respuesta"), str) or not 0 < len(d["respuesta"].strip()) <= 8000:
+            continue
+        if any(not isinstance(d.get(k, []), list) or any(not isinstance(x, str) for x in d.get(k, []))
+               for k in ("citas", "advertencias")):
+            continue
+        d["citas"] = [c.strip().strip("[]").upper() for c in d.get("citas", [])]
+        return d
+    return None
 
 
 def _numeros(texto: str) -> set[str]:
@@ -176,19 +179,39 @@ def _problemas(estado: Estado, salida: dict) -> list[str]:
     return problemas
 
 
+def extractos_de_respaldo(estado: Estado, aviso: str) -> dict | None:
+    fragmentos = (estado.get("fragmentos") or [])[:3]
+    if not fragmentos:
+        return None
+    fuentes = [Fuente(documento_id=f["documento_id"], titulo=f["titulo"], fragmento_id=f["fragmento_id"],
+                      pagina_pdf=f["pagina_pdf"], extracto=f["extracto"][:300]) for f in fragmentos]
+    respuesta = "Encontré estos extractos en los documentos del expediente:\n\n" + "\n\n".join(
+        f"«{f.extracto}» — {f.titulo}, pág. {f.pagina_pdf}" if f.pagina_pdf else f"«{f.extracto}» — {f.titulo}"
+        for f in fuentes
+    )
+    return {"salida": Respuesta(estado="ok", respuesta=respuesta, fuentes=fuentes,
+                                advertencias=[aviso]).model_dump() | {"_verificada": False}}
+
+
 async def generar(estado: Estado) -> dict:
     try:
-        texto, modelo = await llm.completar(_mensajes(estado))
-        salida = _parsear(texto)
-        problemas = ["no devolviste el JSON pedido"] if salida is None else _problemas(estado, salida)
-        if problemas:  # un reintento con la corrección
-            texto, modelo = await llm.completar(_mensajes(estado, aviso="; ".join(problemas) + ". Usa solo las fuentes."))
+        async with asyncio.timeout(35):
+            texto, modelo = await llm.completar(_mensajes(estado))
             salida = _parsear(texto)
-    except llm.ModeloNoDisponible as e:
+            problemas = ["no devolviste el JSON pedido"] if salida is None else _problemas(estado, salida)
+            if problemas:
+                texto, modelo = await llm.completar(_mensajes(estado, aviso="; ".join(problemas) + ". Usa solo las fuentes."))
+                salida = _parsear(texto)
+    except (llm.ModeloNoDisponible, TimeoutError):
+        respaldo = extractos_de_respaldo(estado, "El modelo no respondió. Estos son extractos del documento, sin análisis generado.")
+        if respaldo:
+            return respaldo
         return {"salida": Respuesta(estado="no_disponible",
-                                    respuesta="El asistente no está disponible ahora. Puedes seguir consultando el trámite.",
-                                    advertencias=[str(e)]).model_dump()}
+                                    respuesta="El asistente no está disponible ahora. Puedes seguir consultando el trámite.").model_dump()}
     if salida is None:
+        respaldo = extractos_de_respaldo(estado, "El formato de la respuesta del modelo no se pudo verificar.")
+        if respaldo:
+            return respaldo
         return {"salida": Respuesta(estado="no_disponible",
                                     respuesta="No pude generar una respuesta verificable. Intenta de nuevo.",
                                     advertencias=["El modelo no devolvió una respuesta con el formato pedido."]
@@ -204,6 +227,9 @@ def comprobar(estado: Estado) -> dict:
     advertencias = [a for a in (borrador.get("advertencias") or []) if isinstance(a, str)]
     problemas = _problemas(estado, borrador)
     if problemas:
+        respaldo = extractos_de_respaldo(estado, "Se descartó la respuesta del modelo porque sus citas no se pudieron verificar.")
+        if respaldo:
+            return respaldo
         return {'salida':Respuesta(estado='sin_fuentes',respuesta='No pude verificar esa respuesta con las fuentes disponibles.',
                 advertencias=['La respuesta del modelo fue descartada: '+ '; '.join(problemas)]).model_dump()}
     citadas = {c for c in _citas_en_texto(borrador["respuesta"]) | {str(c) for c in (borrador.get("citas") or [])}

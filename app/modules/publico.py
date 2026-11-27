@@ -44,7 +44,14 @@ def buscar(db: Session, q: str | None, eps_id: str | None, localidad: str | None
 
 def ficha(db: Session, caso_id: str) -> dict:
     pub = repo.publicacion(db, caso_id)
-    return proyectar(pub)
+    from ..schemas.salidas import FichaDecisionPublica
+    from ..auth.sesion import ACTOR_PUBLICO
+    from .documentos import enlace
+    salida=FichaDecisionPublica.model_validate({**pub.resumen,**(pub.ficha or {})}).model_dump(mode='json')
+    documentos=repo.documentos_visibles(db,ACTOR_PUBLICO,pub.tramite_id)
+    salida['documentos']=[{'id':d.id,'titulo':d.titulo} for d in documentos]
+    salida['fuentes']=[{'id':d.id,'titulo':d.titulo,'pagina':None,'articulo':None,'enlace':enlace(d.id,None,True)} for d in documentos]
+    return salida
 
 
 def cifras(db: Session) -> list[dict]:

@@ -86,7 +86,7 @@ async def procesar(trabajo):
                     "Cita páginas del documento. Presenta la propuesta como pendiente de validación humana. "
                     f"Pasajes del documento para localizar evidencia: {terminos}")
         resultado = await graph.preguntar(fuente, actor, trabajo["tramite_id"], pregunta)
-        if resultado.estado == "no_disponible":
+        if resultado.estado == "no_disponible" or (resultado.estado == "ok" and not resultado.modelo):
             raise RuntimeError("El modelo no respondió.")
         if resultado.estado != "ok" or not any(f.documento_id == trabajo["documento_id"] for f in resultado.fuentes):
             return "sin_evidencia", None, [], resultado.advertencias, resultado.modelo

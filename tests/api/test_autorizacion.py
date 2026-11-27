@@ -23,6 +23,11 @@ def test_analista_solo_asignados_y_agente(entorno):
     assert e.client.get('/api/documentos/caso-b-interno/contenido').status_code == 404
     assert e.client.post('/api/agente/chat',json={'tramite_id':'caso-b','pregunta':'Estado'}).status_code == 404
     assert not e.calls
+    assert e.client.get('/api/tramites/caso-a/asignaciones/candidatos').status_code == 403
+    chat = e.client.post('/api/agente/chat', json={
+        'tramite_id': 'caso-a', 'pregunta': '¿Qué dice el documento de los medidores?'})
+    assert chat.status_code == 200, chat.text
+    assert chat.json()['fuentes']
     assert e.client.get('/api/recepcion').status_code == 403
     assert e.client.post('/api/tramites/caso-a/eventos',json={'tipo':'resolver','version':1}).status_code == 403
 
@@ -68,6 +73,14 @@ def test_asignacion_y_reasignacion_conservan_historial(entorno):
         e.db.add(Usuario(id=uid,nombre_visible=uid,perfil='sunass',rol_id='analista_srt',
             activo=True,credenciales_version=1))
     entrar(e)
+    e.db.add(Usuario(id='analista-inactivo', nombre_visible='Inactivo', perfil='sunass',
+        rol_id='analista_srt', activo=False, credenciales_version=1))
+    candidatos = e.client.get('/api/tramites/caso-a/asignaciones/candidatos')
+    assert candidatos.status_code == 200, candidatos.text
+    assert candidatos.json() == [
+        {'id': 'analista-a', 'nombre': 'analista-a'},
+        {'id': 'analista-b', 'nombre': 'analista-b'},
+    ]
     def asignar(uid, version):
         return e.client.post('/api/tramites/caso-a/asignaciones',json={
             'usuario_id':uid,'version':version,'motivo':'Distribución de cartera'})
