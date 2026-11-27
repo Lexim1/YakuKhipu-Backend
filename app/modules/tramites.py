@@ -97,17 +97,19 @@ def flujo(t: Tramite, base: dict | None, p: dict) -> dict:
     actual = min(max(t.paso_actual, 1), len(pasos)) - 1
     semilla = (base or {}).get("pasos") or []
     misma_posicion = (base or {}).get("_paso") == t.paso_actual
+    archivado = bool((getattr(t,'presentacion',None) or {}).get('cierre_anticipado')) and t.estado=='concluido'
     salida = []
     for i, (titulo, detalle) in enumerate(pasos):
-        estado = "hecho" if i < actual or t.estado in FINALES else "actual" if i == actual else "pendiente"
+        estado = ('hecho' if i<=actual else 'pendiente') if archivado else "hecho" if i < actual or t.estado in FINALES else "actual" if i == actual else "pendiente"
         nota = "✓ Hecho" if estado == "hecho" else "Aquí está" if estado == "actual" else "Pendiente"
+        if archivado and i>actual:nota='No realizado: expediente archivado'
         if misma_posicion and i < len(semilla):
             detalle, nota = semilla[i]["detalle"], semilla[i]["nota"]
         salida.append({"titulo": titulo, "detalle": detalle, "estado": estado, "nota": nota})
     texto_situacion = {"en_plazo": "en plazo", "por_vencer": "por vencer", "vencido": "vencido",
                        "concluido": "concluido", "pendiente_de_validacion": "pendiente de validación"}[p["situacion"]]
     if t.estado in FINALES:
-        titulo, chip = f"Procedimiento {TEXTO_ESTADO[t.estado].lower()}", plazos.texto_chip(p)
+        titulo, chip = ('Procedimiento archivado' if archivado else f"Procedimiento {TEXTO_ESTADO[t.estado].lower()}"), plazos.texto_chip(p)
     else:
         titulo = (base or {}).get("titulo") if misma_posicion else None
         titulo = titulo or f"Paso {actual + 1} de {len(pasos)} · Lo tiene {t.responsable or 'sin asignar'}"
@@ -117,6 +119,9 @@ def flujo(t: Tramite, base: dict | None, p: dict) -> dict:
 
 
 def _siguiente_generico(t: Tramite) -> dict:
+    if (t.presentacion or {}).get('cierre_anticipado') and t.estado=='concluido':
+        return {'titulo':'Expediente archivado','detalle':'Revisa el oficio de cierre incorporado y su fecha acreditada.',
+                'responsable':None,'boton':'Ver alertas de plazo','accion':'alertas','urgente':False}
     if t.estado in FINALES:
         return {"titulo": "Seguimiento de la decisión", "detalle": "El procedimiento concluyó. Revisa la resolución y, "
                 "si corresponde, el seguimiento de ejecución.", "responsable": None, "boton": "Ver alertas de plazo", "accion": "alertas",
@@ -238,6 +243,7 @@ def _acciones_estado(db: Session, actor: Actor, t: Tramite) -> list[dict]:
         lista.append({'tipo':'requerir_subsanacion','texto':'Solicitar subsanación','requiere_documento':True})
         if t.paso_actual >= (2 if t.procedimiento == 'RP' else 4):
             lista.append({'tipo':'registrar_informe','texto':'Registrar informe de evaluación','requiere_documento':True})
+    lista.append({'tipo':'cerrar_expediente','texto':'Cerrar y archivar con documento','requiere_documento':True})
     return lista
 
 
@@ -297,7 +303,7 @@ def registrar(db: Session, actor: Actor, tramite_id: str, datos: dict, clave: st
         doc = repo.obtener_documento(db, actor, datos["documento_id"])
         if doc.tramite_id != t.id:
             raise DatosInvalidos("El documento pertenece a otro expediente.")
-        if tipo in {'requerir_informacion', 'requerir_subsanacion', 'resolver'} and doc.visibilidad not in repo.VISIBLES['eps']:
+        if tipo in {'requerir_informacion', 'requerir_subsanacion', 'resolver', 'cerrar_expediente'} and doc.visibilidad not in repo.VISIBLES['eps']:
             raise DatosInvalidos('Coordinación o Jefatura debe revisar el documento y compartirlo con la EPS antes de registrar esta actuación.')
     if datos.get("fecha_acreditada") and datos["fecha_acreditada"] > hoy:
         raise DatosInvalidos("La fecha acreditada no puede ser futura.")
@@ -339,6 +345,18 @@ def registrar(db: Session, actor: Actor, tramite_id: str, datos: dict, clave: st
         if presentacion:
             presentacion["siguiente"] = None
         _ficha_eps_cierre(t, resultado, fecha, doc.referencia or doc.titulo, parcial)
+    elif tipo == 'cerrar_expediente':
+        if not (datos.get('detalle') or '').strip():
+            raise DatosInvalidos('Indica el motivo de archivo acreditado en el documento.')
+        act=_nueva(t,actor,tipo,'Archivo documentado del expediente',datos,destino='concluido',clave=clave)
+        t.estado,t.fecha_fin,t.responsable='concluido',fecha,None
+        presentacion={**(presentacion or {}),'cierre_anticipado':True,'siguiente':None}
+        _ficha_eps_cierre(t,'concluido',fecha,doc.referencia or doc.titulo)
+        ficha=copy.deepcopy(t.ficha_eps)
+        ficha.update(estado_texto='Archivado',resumen=f'El procedimiento se cerró y archivó mediante {doc.referencia or doc.titulo}.')
+        ficha['aviso']={**ficha['aviso'],'titulo':'Expediente archivado','texto':f'Revisa {doc.referencia or doc.titulo} y el motivo de cierre; no es una autorización.'}
+        ficha['seguimiento'][-1]['titulo']=f'Archivo registrado: {doc.referencia or doc.titulo}'
+        t.ficha_eps=ficha
     elif tipo == 'registrar_informe':
         act = _nueva(t, actor, tipo, datos.get('titulo') or 'Informe de evaluación registrado', datos, clave=clave)
     elif tipo in {"requerir_informacion","requerir_subsanacion"}:
