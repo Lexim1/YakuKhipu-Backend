@@ -41,7 +41,7 @@ class Expediente(ResumenTramite):
     flujo: dict[str,Any]
     siguiente: dict[str,Any]
     linea_tiempo: list[dict[str,Any]] | None
-    resumen: dict[str,Any] | None
+    resumen: list[dict[str,Any]] | None
     comparador: dict[str,Any] | None
     plazos: dict[str,Any] | list[dict[str,Any]] | None
     impacto: dict[str,Any] | None

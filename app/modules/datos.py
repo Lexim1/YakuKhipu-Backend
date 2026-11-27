@@ -24,17 +24,32 @@ def proyeccion(db, tramite):
     hitos = db.execute(text('SELECT h.* FROM hito h JOIN registro_fuente r ON r.canonical_id=h.canonical_id WHERE h.tramite_id=:id AND r.presente ORDER BY nro_hito'), {'id':tramite.id}).mappings().all()
     documentos = db.execute(text('SELECT d.id,d.titulo,d.estado_validacion FROM documento d JOIN registro_fuente r ON r.canonical_id=d.id WHERE d.tramite_id=:id AND r.presente ORDER BY d.id'), {'id':tramite.id}).mappings().all()
     ds = db.execute(text('SELECT e.* FROM procedimiento_fuente e JOIN registro_fuente r ON r.canonical_id=e.canonical_id WHERE e.tramite_id=:id AND r.presente'), {'id':tramite.id}).mappings().first()
-    proyectos = db.execute(text('''SELECT p.* FROM programa_inversion p
-        JOIN procedimiento_fuente e ON e.eps_id=p.eps_id JOIN registro_fuente r ON r.canonical_id=p.canonical_id
-        WHERE e.tramite_id=:id AND r.presente AND (p.id_expediente_modificacion=e.id_expediente OR p.cod_proyecto=e.cod_proyecto)'''), {'id':tramite.id}).mappings().all()
-    return {'tema':tramite.titulo, 'resumen': {'procedencia':dict(provenance) if provenance else None},
+    resumen = ([{'etiqueta':'Fuente del expediente', 'valor':provenance['source_file'] or provenance['source_type']}]
+               if provenance else [])
+    comparador = None
+    if ds and (ds['monto_solicitado'] is not None or ds['monto_aprobado'] is not None):
+        versiones = []
+        for campo, titulo in (('monto_solicitado', 'Monto solicitado'), ('monto_aprobado', 'Monto aprobado')):
+            if ds[campo] is not None:
+                versiones.append({'valor':str(ds[campo]), 'titulo':titulo, 'detalle':'Cifra registrada en el dataset',
+                                  'fuente':ds['canonical_id'], 'sin_documento':False})
+        comparador = {'titulo':'Cifras del procedimiento', 'versiones':versiones,
+                      'aviso':'Verifica los documentos antes de usar estas cifras en una decisión.',
+                      'evaluacion':{'cantidad':'Por validar', 'unidad':'La fuente no acredita el impacto físico.',
+                                    'monto':str(ds['monto_aprobado']) if ds['monto_aprobado'] is not None else 'Sin monto aprobado',
+                                    'filas':[{'etiqueta':v['titulo'], 'valor':v['valor']} for v in versiones]}}
+    plazos = None
+    if ds:
+        plazos = {'tarjetas':[], 'proximas':[],
+                  'nota':'Plazos pendientes de validación documental y del calendario de días hábiles.'}
+        if ds['fecha_limite']:
+            plazos['proximas'].append({'fecha_texto':str(ds['fecha_limite']), 'titulo':'Fecha límite registrada en la fuente',
+                                      'chip':{'texto':'Por validar', 'tono':'aviso'}})
+    return {'tema':tramite.titulo, 'resumen': resumen,
         'linea_tiempo':[{'id':h['canonical_id'], 'fecha_texto':str(h['fecha_fin'] or h['fecha_inicio'] or 'Fecha por validar'),
                        'titulo':h['hito'],'detalle':h['descripcion'],'fuente':h['canonical_id'],
                        'chip':{'texto':'Dataset de muestra','tono':'aviso'},'validar':False} for h in hitos],
-        'comparador':{'solicitado':ds['monto_solicitado'] if ds else None,'autorizado':ds['monto_aprobado'] if ds else None,
-                      'ejecutado':None,'fuente':ds['canonical_id'] if ds else None},
-        'impacto':{'proyectos':[dict(p) for p in proyectos], 'beneficio_comprobado':None,
-                   'nota':'Población potencial por proyecto. No sumar sin controlar solapamientos.'},
-        'plazos':{'datos_fuente': {'fecha_limite':ds['fecha_limite'],'dias_suspension_dh':ds['dias_suspension_dh']} if ds else None,
-                   'validacion':'pendiente_de_validacion'},
+        'comparador':comparador,
+        'impacto':None,
+        'plazos':plazos,
         'documentos':[dict(d) for d in documentos]}

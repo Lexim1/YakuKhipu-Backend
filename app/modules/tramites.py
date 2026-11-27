@@ -125,7 +125,7 @@ def _siguiente_generico(t: Tramite) -> dict:
         return {"titulo": "Esperar la respuesta de la EPS", "detalle": "La EPS tiene un requerimiento pendiente.",
                 "responsable": "EPS", "boton": "Ver alertas de plazo", "accion": "alertas", "urgente": False}
     return {"titulo": f"Continuar: {t.etapa}", "detalle": "Registra la actuación con su documento de sustento.",
-            "responsable": t.responsable, "boton": "Ver alertas de plazo", "accion": "alertas", "urgente": False}
+            "responsable": t.responsable, "boton": "Registrar actuación", "accion": "registrar", "urgente": False}
 
 
 def _historial(actuaciones: list[Actuacion]) -> list[dict]:
@@ -195,7 +195,18 @@ def _presentacion_pendiente(db: Session, t: Tramite) -> Actuacion | None:
 
 
 def acciones(db: Session, actor: Actor, t: Tramite) -> list[dict]:
-    return [a for a in _acciones_estado(db, actor, t) if ACCIONES.get(a["tipo"]) in actor.permisos]
+    return [a for a in _acciones_estado(db, actor, t) if _puede_registrar(actor, t, a["tipo"])]
+
+
+def _puede_registrar(actor: Actor, t: Tramite, tipo: str) -> bool:
+    # El analista documenta la evaluación interna; derivaciones, firmas y resoluciones
+    # externas siguen siendo actuaciones de Coordinación/Jefatura DRE.
+    if tipo == 'avanzar_paso' and 'acto_externo.registrar' in actor.permisos:
+        return True
+    internos = {'CPI': {4, 5, 6}, 'UFI': {4, 5}, 'RP': {2, 6, 7}}
+    if tipo == 'avanzar_paso' and t.paso_actual + 1 in internos.get(t.procedimiento, set()):
+        return 'evaluacion.validar' in actor.permisos
+    return ACCIONES.get(tipo) in actor.permisos
 
 
 def _acciones_estado(db: Session, actor: Actor, t: Tramite) -> list[dict]:
@@ -261,8 +272,9 @@ def _nueva(t: Tramite, actor: Actor, tipo: str, titulo: str, datos: dict, destin
 
 def registrar(db: Session, actor: Actor, tramite_id: str, datos: dict, clave: str | None, hoy: date) -> dict:
     """POST /api/tramites/{id}/eventos. Aplica una transición permitida y devuelve el expediente actualizado."""
-    exigir(actor, ACCIONES.get(datos["tipo"], ""))
     t = repo.obtener_tramite(db, actor, tramite_id, bloquear=True)
+    if not _puede_registrar(actor, t, datos["tipo"]):
+        raise AccesoDenegado('No tienes permiso para esta actuación.')
     previa=_repetida(db,t,clave)
     if previa:
         if previa.peticion_hash!=huella_peticion(datos):
