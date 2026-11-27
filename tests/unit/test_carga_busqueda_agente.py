@@ -4,6 +4,14 @@ from app.modules.carga_analistas import ordenar_cargas
 from app.modules.busqueda_agente import palabras
 from app.agent import retrieval
 
+
+def test_flexiones_solicitud_y_autorizacion():
+    docs=[{'texto':'La EPS solicita S/ 424,142.40 por colapso del colector.','titulo':'Carta de solicitud'},
+          {'texto':'La resolución autoriza S/ 254,485.44.','titulo':'Resolución del Consejo Directivo'},
+          {'texto':'Anexo financiero.','titulo':'Anexo 1'}]
+    encontrados=retrieval.buscar('¿Cuánto solicitó la EPS y cuánto autorizó la resolución?',docs,3)
+    assert {x['titulo'] for _,x in encontrados[:2]}=={'Carta de solicitud','Resolución del Consejo Directivo'}
+
 def row(id,carga,actual=False,fecha=None):
     return {'id':id,'nombre':id,'carga_activa':carga,'asignacion_actual':actual,'ultima_asignacion':fecha}
 

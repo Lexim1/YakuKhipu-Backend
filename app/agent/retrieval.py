@@ -25,7 +25,12 @@ def normalizar(texto: str) -> str:
 def tokens(texto: str) -> list[str]:
     t = normalizar(texto)
     t = re.sub(r"(\d)[ .](?=\d{3}\b)", r"\1", t)  # 19 935 / 19.935 → 19935
-    return [w for w in re.findall(r"[a-z0-9]+", t) if w not in PALABRAS_VACIAS and len(w) > 1]
+    palabras = [w for w in re.findall(r"[a-z0-9]+", t) if w not in PALABRAS_VACIAS and len(w) > 1]
+    # Flexiones frecuentes en preguntas de expedientes; conserva códigos y cifras intactos.
+    familias = {'solicit':'solicitud','autoriz':'autorizacion','ejecut':'ejecucion',
+                'resoluc':'resolucion','aprob':'aprobacion','archiv':'archivo',
+                'asign':'asignacion','subsan':'subsanacion'}
+    return [next((canon for prefijo,canon in familias.items() if w.startswith(prefijo)),w) for w in palabras]
 
 
 def buscar(consulta: str, fragmentos: list[dict], k: int = 5) -> list[tuple[float, dict]]:
