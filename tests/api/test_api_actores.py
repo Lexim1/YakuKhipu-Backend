@@ -18,6 +18,18 @@ from soporte_api import Memoria
 @pytest.fixture
 def entorno(monkeypatch):
     db=Memoria()
+    from app.modules import carga_analistas
+    def cargas_memoria(db,actor,tramite_id=None):
+        from app.auth.permisos import exigir
+        exigir(actor,'asignacion.gestionar')
+        filas=[]
+        for u in db.tablas['usuario'].values():
+            if not u.activo or u.rol_id!='analista_srt':continue
+            acts=[a for a in db.tablas['asignacion_tramite'].values() if a.usuario_id==u.id]
+            abiertos={a.tramite_id for a in acts if a.fin is None and db.tablas['tramite'][a.tramite_id].estado not in ('concluido','autorizado','no_autorizado')}
+            filas.append({'id':u.id,'nombre':u.nombre_visible,'carga_activa':len(abiertos),'ultima_asignacion':max((a.inicio for a in acts),default=None),'asignacion_actual':any(a.fin is None and a.tramite_id==tramite_id for a in acts)})
+        return carga_analistas.ordenar_cargas(filas)
+    monkeypatch.setattr(carga_analistas,'consultar',cargas_memoria)
     from app.modules import calidad
     monkeypatch.setattr(calidad, 'listar', lambda db, tramites: [])
     monkeypatch.setattr(settings,'secret_key','clave-aislada-de-pruebas-http-de-32-caracteres')
@@ -117,7 +129,7 @@ def test_recorrido_sunass_eps_resolucion_publicacion_ciudadania(entorno):
     assert e.client.get('/api/eps/tramites').json()['total']==1
     ficha=e.client.get('/api/eps/tramites/caso-a').json()
     assert ficha['siguiente_accion']['fecha_limite'] is None
-    r=e.client.post('/api/eps/tramites/caso-a/respuestas',json={'version':version,'documento':'caso-a-partes','fecha_presentacion':'2026-11-21','canal':'Mesa de Partes'},headers={'Idempotency-Key':'respuesta-1'})
+    r=e.client.post('/api/eps/tramites/caso-a/respuestas',json={'version':version,'documento':'caso-a-publico','fecha_presentacion':'2026-11-21','canal':'Mesa de Partes'},headers={'Idempotency-Key':'respuesta-1'})
     assert r.status_code==200,r.text
     assert r.json()['respuesta_informada']['verificada'] is False
     entrar(e)

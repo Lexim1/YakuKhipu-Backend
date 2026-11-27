@@ -18,7 +18,7 @@ from ..schemas.comun import Actor
 from ..schemas.comun import ListaPaginada
 from ..schemas.salidas import ResumenTramite,Expediente,Accion,PublicarDecision,NuevaRecepcion,DecisionPublica
 from ..schemas.salidas import Evento,Recepcion,Flujo,Alerta
-from ..schemas.tramite import ConfirmarVinculo, Incorporacion, NuevaActuacion, NuevoExpedienteRecepcion
+from ..schemas.tramite import ConfirmarVinculo, Incorporacion, NuevaActuacion, NuevoExpedienteRecepcion, RevisionVisibilidad
 from ..modules import tramites as servicio
 from ..modules.datos import contexto
 from ..auth.permisos import exigir
@@ -114,10 +114,8 @@ def catalogos_recepcion(actor: Actor = Depends(actor_sunass), db: Session = Depe
     empresas = [{"id": e.id, "nombre": e.nombre} for e in eps]
     analistas = []
     if "asignacion.gestionar" in actor.permisos:
-        usuarios = db.scalars(select(Usuario).where(
-            Usuario.rol_id == "analista_srt", Usuario.activo.is_(True),
-        ).order_by(Usuario.nombre_visible, Usuario.id))
-        analistas = [{"id": u.id, "nombre": u.nombre_visible} for u in usuarios]
+        from ..modules.carga_analistas import consultar
+        analistas = consultar(db,actor)
     return {"empresas": empresas, "analistas": analistas}
 
 
@@ -141,7 +139,8 @@ def destinos_recepcion(actor: Actor = Depends(actor_sunass), db: Session = Depen
 @router.post("/recepcion/pdf", status_code=202, summary="Recibir y encolar un PDF")
 def recibir_pdf(titulo: str = Form(min_length=3,max_length=200), referencia: str = Form(min_length=2,max_length=120),
                 fecha_documento: date = Form(), eps_id: str = Form(min_length=3,max_length=80),
-                archivo: UploadFile = File(), actor: Actor = Depends(actor_sunass), db: Session = Depends(get_db)):
+                archivo: UploadFile = File(), simulado: bool = Form(default=False),
+                actor: Actor = Depends(actor_sunass), db: Session = Depends(get_db)):
     from ..models import Eps
     from ..core.errores import DatosInvalidos
     from ..modules.archivos_pdf import almacenar
@@ -151,7 +150,7 @@ def recibir_pdf(titulo: str = Form(min_length=3,max_length=200), referencia: str
         raise DatosInvalidos("Revisa la EPS, el título, la referencia y la fecha del documento.")
     pdf = almacenar(archivo.file)
     datos = dict(titulo=titulo.strip(), referencia=referencia.strip(), fecha_documento=fecha_documento,
-                 eps_id=eps_id, texto="")
+                 eps_id=eps_id, texto="", simulado=simulado)
     recibido = recibir_documento(db, actor, datos, settings.hoy(), uuid4().hex, pdf=pdf)
     return {**recibido, "procesamiento_pdf": {"estado": "pendiente", "error": None, "paginas": None}}
 
@@ -190,6 +189,14 @@ def documentos(tramite_id: str,actor: Actor=Depends(actor_institucional),db: Ses
     items=[{'id':d.id,'titulo':d.titulo,'referencia':d.referencia,'paginas':d.paginas,'visibilidad':d.visibilidad,
             'pdf_disponible': d.archivo == 'bucket:original' or pdf_disponible(d)} for d in rows]
     return {'items':items,'total':len(items)}
+
+
+@router.put('/tramites/{tramite_id}/documentos/{documento_id}/visibilidad',
+            summary='Revisar el acceso de la EPS a un documento sin publicarlo')
+def revisar_visibilidad(tramite_id: str, documento_id: str, datos: RevisionVisibilidad,
+                        actor: Actor = Depends(actor_sunass), db: Session = Depends(get_db)) -> dict:
+    from ..modules.operaciones import revisar_visibilidad as revisar
+    return revisar(db, actor, tramite_id, documento_id, datos.model_dump(), settings.hoy())
 
 
 @router.post("/recepcion/incorporaciones", status_code=204, summary="Incorporar un documento a un expediente")

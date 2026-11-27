@@ -51,6 +51,16 @@ def buscar(consulta: str, fragmentos: list[dict], k: int = 5) -> list[tuple[floa
     return resultados[:k]
 
 
+def umbral(cantidad_paginas: int, configurado: float) -> float:
+    """BM25 depende del corpus: una coincidencia única en una sola página vale
+    log(4/3), por debajo del umbral histórico 1.5. Acotar por la mitad del IDF
+    máximo conserva esa evidencia sin admitir resultados con puntaje cero.
+    El puntaje mide coincidencia léxica; no certifica que una respuesta sea cierta.
+    """
+    n = max(1,cantidad_paginas)
+    return min(configurado,0.5*math.log(1+(n-0.5)/1.5))
+
+
 def extracto(texto: str, consulta: str, largo: int = 2600) -> str:
     """Ventana del texto alrededor de las palabras de la consulta (para no mandar páginas enteras)."""
     norm = normalizar(texto)

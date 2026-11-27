@@ -9,6 +9,8 @@ def test_aviso_eps_sin_pdf_no_verifica_ni_da_acceso_a_documentos(entorno):
     entrar(e,'empresa-a')
     datos={'referencia_presentada':'Oficio EPS 321','fecha_presentacion':'2026-11-21','cargo':'Cargo 123',
            'canal':'Mesa de Partes','version':r.json()['version']}
+    assert e.client.post('/api/eps/tramites/caso-a/respuestas',json={**datos,'fecha_presentacion':'2026-11-19'}).status_code==422
+    assert e.client.post('/api/eps/tramites/caso-a/respuestas',json={**datos,'documento':'caso-a-partes'}).status_code==422
     r=e.client.post('/api/eps/tramites/caso-a/respuestas',json=datos,headers={'Idempotency-Key':'aviso-qa'})
     assert r.status_code==200,r.text
     assert r.json()['respuesta_informada']['documento']=='Oficio EPS 321'
@@ -20,8 +22,12 @@ def test_aviso_eps_sin_pdf_no_verifica_ni_da_acceso_a_documentos(entorno):
     assert actions==[{'tipo':'verificar_respuesta','texto':'Verificar la respuesta de la EPS','requiere_documento':True}]
     version=e.db.get(Tramite,'caso-a').version
     assert e.client.post('/api/tramites/caso-a/eventos',json={'tipo':'verificar_respuesta','version':version}).status_code==422
+    assert e.client.post('/api/tramites/caso-a/eventos',json={'tipo':'verificar_respuesta','version':version,
+        'documento_id':'caso-a-partes','fecha_acreditada':'2026-11-22'}).status_code==422
+    assert e.client.post('/api/tramites/caso-a/eventos',json={'tipo':'verificar_respuesta','version':version,
+        'documento_id':'caso-a-publico','fecha_acreditada':'2026-11-20'}).status_code==422
     r=e.client.post('/api/tramites/caso-a/eventos',json={'tipo':'verificar_respuesta','version':version,
-        'documento_id':'caso-a-partes','fecha_acreditada':'2026-11-22'})
+        'documento_id':'caso-a-publico','fecha_acreditada':'2026-11-22'})
     assert r.status_code==200,r.text
 
 def test_id_de_documento_ajeno_sigue_rechazado(entorno):

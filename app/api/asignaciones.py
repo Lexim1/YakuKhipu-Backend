@@ -1,18 +1,18 @@
 """Asignación y reasignación con historia; nunca reemplaza una asignación cerrada."""
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, ConfigDict
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 from ..auth.sesion import actor_sunass
 from ..auth.permisos import exigir
 from ..core.db import get_db
 from ..core.errores import Conflicto
-from ..models import Usuario
 from ..repositories import tramites as repo
 from ..schemas.comun import Actor
 from ..modules.tramites import _guardar, _nueva, cambiar_asignacion
+from ..modules import carga_analistas
+from datetime import datetime
 
-router = APIRouter(prefix='/api/tramites', tags=['Asignaciones'])
+router = APIRouter(tags=['Asignaciones'])
 
 class NuevaAsignacion(BaseModel):
     model_config = ConfigDict(extra='forbid')
@@ -23,20 +23,28 @@ class NuevaAsignacion(BaseModel):
 class CandidatoAsignacion(BaseModel):
     id: str
     nombre: str
+    carga_activa: int
+    menor_carga: bool
+    recomendado: bool
+    asignacion_actual: bool
+    ultima_asignacion: datetime | None
 
 
-@router.get('/{tramite_id}/asignaciones/candidatos', response_model=list[CandidatoAsignacion])
+@router.get('/api/tramites/{tramite_id}/asignaciones/candidatos', response_model=list[CandidatoAsignacion])
 def candidatos(tramite_id: str, actor: Actor = Depends(actor_sunass),
                db: Session = Depends(get_db)) -> list[CandidatoAsignacion]:
     exigir(actor, 'asignacion.gestionar')
     repo.obtener_tramite(db, actor, tramite_id)
-    consulta = select(Usuario).where(
-        Usuario.rol_id == 'analista_srt', Usuario.activo.is_(True),
-    ).order_by(Usuario.nombre_visible, Usuario.id)
-    return [CandidatoAsignacion(id=u.id, nombre=u.nombre_visible) for u in db.scalars(consulta)]
+    return carga_analistas.consultar(db,actor,tramite_id)
 
 
-@router.post('/{tramite_id}/asignaciones', status_code=201)
+@router.get('/api/asignaciones/carga', response_model=list[CandidatoAsignacion])
+def carga(actor: Actor = Depends(actor_sunass), db: Session = Depends(get_db)):
+    exigir(actor,'asignacion.gestionar')
+    return carga_analistas.consultar(db,actor)
+
+
+@router.post('/api/tramites/{tramite_id}/asignaciones', status_code=201)
 def asignar(tramite_id: str, datos: NuevaAsignacion, actor: Actor = Depends(actor_sunass), db: Session = Depends(get_db)) -> dict:
     exigir(actor, 'asignacion.gestionar')
     t = repo.obtener_tramite(db, actor, tramite_id, bloquear=True)
