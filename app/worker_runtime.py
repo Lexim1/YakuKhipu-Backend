@@ -102,7 +102,7 @@ def main()->int:
    stopped.wait(2)
   else:raise RuntimeError('OmniRoute no alcanzó disponibilidad')
   inference=configure_gateway(base,directory,management,providers,combo)
-  worker_env=os.environ.copy();worker_env.update(LLM_BASE_URL=base+'/v1',LLM_API_KEY=inference,LLM_MODEL='yakukhipu',LLM_ENABLED='true')
+  worker_env=os.environ.copy();worker_env.update(LLM_BASE_URL=base+'/v1',LLM_API_KEY=inference,LLM_MODEL='yakukhipu',LLM_ENABLED=os.environ.get('LLM_ENABLED','true'))
   for key in ['YAKUKHIPU_OMNI_PROVIDERS','OMNIROUTE_API_KEY','INITIAL_PASSWORD','STORAGE_ENCRYPTION_KEY','JWT_SECRET','API_KEY_SECRET']:worker_env.pop(key,None)
   worker=subprocess.Popen([sys.executable,'-m','app.worker_pdf'],env=worker_env)
   ready.set();LOG.info('OmniRoute y worker listos; combo yakukhipu configurado')

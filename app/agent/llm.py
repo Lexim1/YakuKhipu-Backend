@@ -27,8 +27,11 @@ async def completar(mensajes: list[dict], max_tokens: int | None = None) -> tupl
         # JSON simple conserva compatibilidad con los modelos gratuitos. El contrato
         # y las citas se vuelven a validar en graph; el formato no demuestra veracidad.
         cuerpo["response_format"] = {"type": "json_object"}
-        cuerpo["provider"] = {"require_parameters": True}
-        if settings.llm_reasoning_effort:
+        # Un endpoint gratuito puede admitir JSON sin declarar todos sus parámetros
+        # en el catálogo; require_parameters lo excluiría con HTTP 404.
+        if settings.llm_reasoning_effort == "none":
+            cuerpo["reasoning"] = {"enabled": False}
+        elif settings.llm_reasoning_effort:
             cuerpo["reasoning"] = {"effort": settings.llm_reasoning_effort}
     ultimo_error = None
     async with httpx.AsyncClient(timeout=settings.llm_timeout) as cliente:
