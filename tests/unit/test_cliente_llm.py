@@ -34,3 +34,22 @@ def test_transporte_llm_sin_red(monkeypatch,codigo,respuesta,exito,llamadas):
 def test_modelo_deshabilitado_no_realiza_http(monkeypatch):
     monkeypatch.setattr(settings,'llm_enabled',False)
     with pytest.raises(llm.ModeloNoDisponible): asyncio.run(llm.completar([]))
+
+
+def test_openrouter_gratis_sin_razonamiento(monkeypatch):
+    real_client=httpx.AsyncClient
+    requests=[]
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(200,json={'choices':[{'message':{'content':'{"respuesta":"ok"}'}}]})
+    monkeypatch.setattr(settings,'llm_enabled',True)
+    monkeypatch.setattr(settings,'llm_base_url','https://openrouter.ai/api/v1')
+    monkeypatch.setattr(settings,'llm_model','nvidia/nemotron-3-ultra-550b-a55b:free')
+    monkeypatch.setattr(settings,'llm_reasoning_effort','none')
+    monkeypatch.setattr(llm.httpx,'AsyncClient',lambda **kwargs:real_client(transport=httpx.MockTransport(handler),**kwargs))
+    asyncio.run(llm.completar([{'role':'user','content':'pregunta'}]))
+    assert requests[0].content
+    import json
+    data=json.loads(requests[0].content)
+    assert data['reasoning']=={'enabled':False}
+    assert data['model'].endswith(':free')
