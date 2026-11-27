@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from pypdf import PdfReader,PdfWriter
 from scripts.generar_sql import Exporter,TABLES,CASES,identity,insert,literal,dump,sha,read_rows
+from scripts.documentos_sprint import agrupar_documentos
 
 UPDATES={
  'ds02_procedimientos':'ds02_procedimientos_actualizados',
@@ -115,16 +116,12 @@ class Importer(Exporter):
             self.indexed_docs+=1
         # Cada PDF de práctica agrupa varios documentos. Separar por ID para no exponer páginas de otro documento.
         for path in sorted((self.root/'expedientes_ficticios').glob('*.pdf')):
-            raw=path.read_bytes();reader=PdfReader(io.BytesIO(raw));groups=defaultdict(list)
-            for index,page in enumerate(reader.pages):
-                text=page.extract_text() or ''
-                # La portada es un índice de todos los IDs y no se adjunta a ninguno.
-                if index==0:continue
-                match=re.search(r'\bDOC-\d{6}\b',text)
-                if match and match[0] in self.doc_ids:
-                    if by_id[match[0]]['id_expediente']!=path.stem:
-                        self.error(path.name,str(index+1),'documento_de_otro_expediente',match[0]);continue
-                    groups[match[0]].append((page,text,index+1))
+            raw=path.read_bytes();reader=PdfReader(io.BytesIO(raw));groups={}
+            for source,pages in agrupar_documentos(reader).items():
+                if source not in self.doc_ids:continue
+                if by_id[source]['id_expediente']!=path.stem:
+                    self.error(path.name,source,'documento_de_otro_expediente',source);continue
+                groups[source]=pages
             for source,pages in groups.items():
                 did=self.doc_ids[source];row=by_id[source];writer=PdfWriter()
                 for page,_,_ in pages:writer.add_page(page)
@@ -137,7 +134,7 @@ class Importer(Exporter):
                 for page_no,(_,text,original_page) in enumerate(pages,1):
                     self.data.append(insert('fragmento',dict(id=f'{did}-p{page_no}',documento_id=did,
                         tramite_id=self.tramites[row['id_expediente']],pagina_pdf=page_no,texto=text,
-                        requiere_ocr=len(text.strip())<80,metadatos=dump({'archivo_fuente':path.name,'pagina_origen':original_page,'sha256_pdf':sha(blob),'tipo':'documento_ficticio'}))))
+                        requiere_ocr=not bool(text.strip()),metadatos=dump({'archivo_fuente':path.name,'pagina_origen':original_page,'sha256_pdf':sha(blob),'tipo':'documento_ficticio','texto_corto':len(text.strip())<80}))))
                 self.pdf_count+=1
         self.counts['ds11_indice_documentos.csv']={'filas':len(rows),'cargadas':self.indexed_docs,'documentos_con_pdf':self.pdf_count}
 

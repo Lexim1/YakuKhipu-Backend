@@ -1,0 +1,2 @@
+# Solo para transcripciones PDF opcionales de los kits locales.
+reportlab>=4,<5

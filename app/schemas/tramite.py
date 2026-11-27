@@ -14,7 +14,7 @@ class Entrada(BaseModel):
 
 class NuevaActuacion(Entrada):
     """POST /api/tramites/{id}/eventos."""
-    tipo: Literal["avanzar_paso", "registrar_informe", "requerir_informacion", "requerir_subsanacion", "verificar_respuesta", "resolver", "confirmar_vinculo", "validar_expediente"]
+    tipo: Literal["avanzar_paso", "registrar_informe", "requerir_informacion", "requerir_subsanacion", "verificar_respuesta", "resolver", "cerrar_expediente", "confirmar_vinculo", "validar_expediente"]
     titulo: str | None = Field(default=None, max_length=200)
     detalle: str | None = Field(default=None, max_length=2000)
     documento_id: str | None = Field(default=None, max_length=120)
