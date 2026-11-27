@@ -465,14 +465,22 @@ def _ficha_eps_cierre(t: Tramite, resultado: str, fecha: date, referencia: str, 
 
 def listar_recepcion(db: Session) -> list[dict]:
     from .archivos_pdf import estado
+    from .clasificacion_recepcion import sugerir
     salida = []
     consulta = select(DocumentoRecibido).where(DocumentoRecibido.incorporado_a.is_(None)).order_by(DocumentoRecibido.id)
     for recibido in db.scalars(consulta):
         item = {k:v for k,v in recibido.datos.items() if k not in ('texto', 'tiene_pdf')}
+        texto_clasificacion = recibido.datos.get('texto', '')
         if recibido.datos.get("tiene_pdf"):
             trabajo = estado(db, recibido.id)
             if trabajo:
                 item["procesamiento_pdf"] = trabajo
+                if trabajo['estado'] == 'listo':
+                    # Solo la primera página: evita cargar el expediente entero en la bandeja.
+                    texto_clasificacion = db.execute(text("""SELECT paginas->0->>'texto'
+                        FROM procesamiento_pdf WHERE recepcion_id=:id AND estado='listo'"""),
+                        {'id': recibido.id}).scalar() or ''
+        item['clasificacion'] = sugerir(texto_clasificacion[:16000])
         salida.append(item)
     return salida
 

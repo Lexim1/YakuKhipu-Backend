@@ -159,6 +159,7 @@ class Recepcion(BaseModel):
     eps_id: str
     registrado_por: str
     procesamiento_pdf: EstadoPDF | None = None
+    clasificacion: dict | None = None
 
 
 class Flujo(BaseModel):
