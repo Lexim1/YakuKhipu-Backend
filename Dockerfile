@@ -1,6 +1,6 @@
 FROM node:24-alpine AS frontend
 RUN apk add --no-cache git
-ARG FRONTEND_COMMIT=0daac242e1b85f19b2807802bd790bea8cf40a9b
+ARG FRONTEND_COMMIT=53edf455604f4585d102bf1750ba851b89e8c134
 WORKDIR /frontend
 RUN git init && git remote add origin https://github.com/Lexim1/YakuKhipu.git \
     && git fetch --depth 1 origin "$FRONTEND_COMMIT" && git checkout --detach FETCH_HEAD
