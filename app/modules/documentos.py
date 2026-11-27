@@ -16,6 +16,8 @@ from ..core.errores import NoEncontrado,ServicioNoDisponible
 
 
 def pdf_disponible(doc):
+    if doc.archivo and doc.archivo.startswith('bucket:fuentes/'):
+        return bool(settings.pdf_bucket)
     if not doc.archivo or not settings.documentos_dir: return False
     root=Path(settings.documentos_dir).resolve()
     archive,separator,member=doc.archivo.partition('::')
@@ -32,6 +34,10 @@ def contenido(db: Session, actor: Actor, documento_id: str, pagina: int | None, 
     if pagina and doc.paginas and pagina>doc.paginas:
         raise NoEncontrado('La página indicada no existe en el documento.')
     clave = None
+    if doc.archivo and doc.archivo.startswith('bucket:fuentes/'):
+        from .archivos_pdf import descargar
+        clave=doc.archivo.removeprefix('bucket:')
+        if formato=='pdf':return descargar(clave)
     if doc.archivo == "bucket:original":
         from .archivos_pdf import descargar, original
         clave = original(db, doc.id)

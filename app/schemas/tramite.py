@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
 class Entrada(BaseModel):
@@ -35,11 +35,18 @@ class ConfirmarVinculo(Entrada):
 
 class NuevaRespuestaEps(Entrada):
     """POST /api/eps/tramites/{id}/respuestas."""
-    documento: str = Field(min_length=2, max_length=120)
+    documento: str | None = Field(default=None, min_length=2, max_length=120, description='ID de un documento incorporado y visible para la EPS')
+    referencia_presentada: str | None = Field(default=None, min_length=2, max_length=120, description='Número del oficio presentado, pendiente de incorporación y verificación')
     fecha_presentacion: date
     cargo: str | None = Field(default=None, max_length=120)
     canal: str = Field(min_length=2, max_length=120)
     version: int = Field(ge=1)
+
+    @model_validator(mode='after')
+    def identificar_presentacion(self):
+        if not self.documento and not self.referencia_presentada:
+            raise ValueError('Indica el documento incorporado o la referencia presentada por Mesa de Partes.')
+        return self
 
 
 class Incorporacion(Entrada):

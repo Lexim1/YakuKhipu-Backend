@@ -30,7 +30,7 @@ def ejecutar(args, hasta):
     restante = hasta - monotonic()
     if restante <= 0:
         raise subprocess.TimeoutExpired(args, 0)
-    entorno = {k: os.environ[k] for k in ("PATH", "SystemRoot", "TMP", "TEMP") if k in os.environ}
+    entorno = {k: os.environ[k] for k in ("PATH", "SystemRoot", "TMP", "TEMP", "TESSDATA_PREFIX") if k in os.environ}
     entorno.update({"LANG": "C", "OMP_THREAD_LIMIT": "1"})
     return subprocess.run(args, capture_output=True, check=True, env=entorno,
                           timeout=min(60, restante)).stdout

@@ -127,6 +127,9 @@ def test_oidc_y_pdf_en_expediente_postgres(monkeypatch):
                     pendiente = web.get(f"/api/tramites/{tramite}/propuestas")
                     assert pendiente.status_code == 200
                     assert pendiente.json()["items"][0]["estado"] == "pendiente"
+                    # Aislar esta cola de otros ingresos existentes en QA. El
+                    # cambio pertenece a la transacción de prueba y se revierte.
+                    db.execute(text("UPDATE propuesta_agente SET estado='fallida' WHERE documento_id<>:id AND estado IN ('pendiente','procesando')"), {'id': documento})
                     trabajo = propuestas.tomar(db)
                     assert trabajo["documento_id"] == documento
                     monkeypatch.setattr(propuestas, "SesionDB", lambda: Session(bind=conexion,

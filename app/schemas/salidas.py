@@ -24,6 +24,8 @@ class Plazo(BaseModel):
 
 class ResumenTramite(BaseModel):
     id: str
+    referencia: str | None = None
+    estado: str | None = None
     procedimiento: str
     eps: str
     tamano_eps: str
@@ -111,6 +113,16 @@ class DocumentoContenido(BaseModel):
     simulado: bool
     pdf_disponible: bool
     paginas: list[dict[str,Any]]
+
+
+class FichaDecisionPublica(DecisionPublica):
+    """Solo proyección aprobada. No consulta montos ni documentos internos por defecto."""
+    solicitado: dict[str,Any] | None = None
+    autorizado: dict[str,Any] | None = None
+    ejecutado: dict[str,Any] | None = None
+    impacto: list[dict[str,Any]] = Field(default_factory=list)
+    fuentes: list[dict[str,Any]] = Field(default_factory=list)
+    consulta: dict[str,Any] | None = None
 
 
 class Accion(BaseModel):

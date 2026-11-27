@@ -1,6 +1,6 @@
 # Backend YakuKhipu
 
-FastAPI, SQLAlchemy y PostgreSQL 15+. La aplicación solo ejecuta consultas y DML. El único SQL versionado es `sql/yakukhipu_final.sql`.
+FastAPI, SQLAlchemy y PostgreSQL 15+. La aplicación solo ejecuta consultas y DML. La instalación nueva usa `sql/yakukhipu_final.sql`; las actualizaciones explícitas para bases existentes están en `sql/migraciones`. Consulta [Integración D3 en QA](docs/integracion_d3_qa.md).
 
 ## Instalación
 
@@ -57,4 +57,4 @@ POST /api/tramites/{id}/asignaciones asigna o reasigna un analista activo; requi
 
 scripts.generar_sql conserva las herramientas de lectura de datasets/casos. Sus salidas incrementales se generan en sql/local (ignorado por Git); no crean BD y no reemplazan automáticamente el SQL final. Revisar y conciliar cambios del dataset antes de actualizar una instalación existente. Los datos fuente simulados siguen identificados como tales; no hay semilla demo de ejecución.
 
-Los tests unitarios y HTTP usan dobles y no prueban transacciones PostgreSQL. Para integración de solo lectura configurar VERIFY_DATABASE_URL y ejecutar tests/integration. Los PDF y ZIP no se versionan. El SQL final incluye texto fuente: revisar su contenido antes de redistribuirlo.
+Los tests unitarios y HTTP usan dobles y no prueban transacciones PostgreSQL. Para integración configurar VERIFY_DATABASE_URL a una copia PostgreSQL local: incluye lecturas y escrituras transaccionales con rollback. Los PDF y ZIP no se versionan. El SQL final incluye texto fuente: revisar su contenido antes de redistribuirlo.

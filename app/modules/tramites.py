@@ -65,13 +65,19 @@ TIPOS_SEMILLA = {"hito"}  # actuaciones cargadas desde los documentos; ya forman
 # ---------------------------------------------------------------- lectura
 
 def _eps(db: Session, t: Tramite) -> Eps:
-    return db.get(Eps, t.eps_id)
+    return getattr(db,'info',{}).get('eps_cache',{}).get(t.eps_id) or db.get(Eps, t.eps_id)
 
 
 def resumen(db: Session, t: Tramite, hoy: date) -> dict:
     p = plazos.calcular(db, t, hoy)
+    if t.estado in FINALES: p={**p,'situacion':'concluido'}
     eps = _eps(db, t)
-    return {"id": t.id, "procedimiento": t.procedimiento, "eps": eps.nombre, "tamano_eps": eps.tamano or "Mediana",
+    cache=getattr(db,'info',{}).get('referencias')
+    referencia=cache.get(t.id) if cache is not None else None
+    if cache is None and hasattr(db,'info'):
+        referencia=db.execute(text("""SELECT coalesce(p.id_expediente,r.datos->>'referencia',r.datos->>'expediente')
+            FROM registro_fuente r LEFT JOIN procedimiento_fuente p ON p.tramite_id=r.canonical_id WHERE r.canonical_id=:id"""),{'id':t.id}).scalar()
+    return {"id": t.id, "referencia":referencia, "estado":t.estado,"procedimiento": t.procedimiento, "eps": eps.nombre, "tamano_eps": eps.tamano or "Mediana",
             "etapa": t.etapa, "responsable": t.responsable or "Sin asignar",
             "plazo": {k: p[k] for k in ("situacion", "dias_usados", "dias_totales", "etapa")},
             "simulado": t.simulado}
@@ -205,9 +211,10 @@ def _acciones_estado(db: Session, actor: Actor, t: Tramite) -> list[dict]:
     lista = []
     if (t.presentacion or {}).get("vinculo"):
         lista.append({"tipo": "confirmar_vinculo", "texto": "Confirmar el vínculo propuesto", "requiere_documento": False})
-    if _presentacion_pendiente(db, t):
+    pendiente = _presentacion_pendiente(db, t)
+    if pendiente:
         lista.append({"tipo": "verificar_respuesta", "texto": "Verificar la respuesta de la EPS",
-                      "requiere_documento": False})
+                      "requiere_documento": not bool(pendiente.documento_id)})
         return lista
     if t.estado in {"en_evaluacion","en_consulta"}:
         if t.paso_actual < len(PASOS[t.procedimiento]):
@@ -329,6 +336,8 @@ def registrar(db: Session, actor: Actor, tramite_id: str, datos: dict, clave: st
             presentacion["siguiente"] = None
     elif tipo == "verificar_respuesta":
         pendiente = _presentacion_pendiente(db, t)
+        if not pendiente.documento_id:
+            pendiente.documento_id = datos['documento_id']
         pendiente.verificada = True
         act = _nueva(t, actor, tipo, datos.get("titulo") or "SUNASS verifica la respuesta de la EPS", datos, clave=clave)
         if t.ficha_eps and t.ficha_eps.get("respuesta_informada"):

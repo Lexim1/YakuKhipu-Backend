@@ -31,4 +31,5 @@ scripts/salidas/
 fragmentos*.json
 cache_respuestas*.json
 sql/local/
+/frontend_dist/
 
